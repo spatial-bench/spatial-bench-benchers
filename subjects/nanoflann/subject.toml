@@ -1,13 +1,7 @@
-# nanoflann — an unwilling subject.
-#
-# nanoflann has never heard of this project and will never ship a manifest. The
-# engine therefore carries everything: the pinned upstream ref, a shim that
-# exposes a uniform CLI, and the case declarations. This is the common case, not
-# the exception, which is why the manifest format has to be data rather than a
-# trait a subject implements.
-#
-# Compare with subjects/kiddo/subject.toml: the two are structurally identical
-# apart from the adapter, which is exactly the intent.
+# nanoflann — an unwilling subject: header-only, never heard of this project.
+# Day 1.5: the exec adapter builds its shim from this manifest's recipe, and
+# the driver speaks the same harness contract as every other subject
+# (--list, RunSpec on stdin, JSONL points on stdout).
 
 schema = 1
 name = "nanoflann"
@@ -17,15 +11,18 @@ domain = "spatial_index"
 kind = "git"
 repo = "https://github.com/jlblancoc/nanoflann"
 pinned_ref = "v1.7.1"
+# S1: git tags are mutable; the build fetches at this sha and refuses a
+# ref that resolves anywhere else.
+sha = "9a653cb243db6a09c94f833b28732b62f033e2b5"
 
 [build]
 kind = "cxx-shim"
-shim = "shim.cpp"
-std = "c++17"
+std = "c++20"
 flags = ["-O3", "-march=native", "-DNDEBUG"]
-
-# nanoflann templates its index on dimensionality, so the shim compiles one
-# specialisation per `dims` the cases below use and dispatches at runtime.
+# Header locations, relative to the fetched library source root.
+include = ["include"]
+# The shim compiles one template specialisation per dimensionality here and
+# dispatches at run time; axis and k are runtime parameters of the binary.
 compile_time_dims = [3, 4]
 
 [vocab]
@@ -34,28 +31,13 @@ compile_time_dims = [3, 4]
 # Not compile_time: the shim dispatches on it at run time.
 leaf_max_size.kind = "int"
 
-# Single-phase: C++ templates are resolved by the shim's own dispatch, so there
-# is nothing for the engine to generate.
 [driver]
 adapter = "exec"
-crate = "spatial-bench-nanoflann"
+lang = "cxx"
+entry = "shim.cpp"
 
 [[case]]
 runners = ["criterion", "perf"]
-
-# The shim speaks the engine's output contract on stdout; params are templated
-# in. Adding a language means adding a driver and a manifest, not engine code.
-command = [
-  "{shim_bin}",
-  "--query=exact_nn",
-  "--k={k}",
-  "--dims={dims}",
-  "--axis={axis}",
-  "--points={tree_size}",
-  "--queries={query_count}",
-  "--leaf-max-size={nanoflann.leaf_max_size}",
-]
-output = "spatial-bench-jsonl"
 
 matrix.axis = ["f32", "f64"]
 matrix.k = [1, 5, 20, 50]
