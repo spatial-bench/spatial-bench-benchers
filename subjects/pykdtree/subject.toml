@@ -1,0 +1,52 @@
+# pykdtree — the first python exec subject.
+#
+# pykdtree has never heard of this project. Day 1.5: the engine's exec adapter
+# builds its environment from this manifest's recipe (a venv with the pinned
+# PyPI version), and the driver beside this manifest speaks the same harness
+# contract as every other subject.
+
+schema = 1
+name = "pykdtree"
+domain = "spatial_index"
+
+[source]
+kind = "pypi"
+package = "pykdtree"
+# PyPI versions are immutable once published: pinning by version is the
+# python side of the S1 pin story (wheel-hash pinning optional later).
+pinned_ref = "1.4.3"
+
+[build]
+kind = "python-driver"
+
+[driver]
+adapter = "exec"
+lang = "python"
+entry = "driver.py"
+
+[vocab]
+# pykdtree's own knob. Namespaced, so `pykdtree.leafsize` never collides with
+# `kiddo.bucket` or `nanoflann.leaf_max_size` even though all three are
+# "leaf capacity". Not compile_time: the driver passes it at run time.
+leafsize.kind = "int"
+
+[[case]]
+runners = ["criterion", "perf"]
+
+matrix.axis = ["f32", "f64"]
+matrix.k = [1, 5, 20, 50]
+
+tags.impl = "pykdtree"
+tags.query = "exact_nn"
+tags.dims = 3
+tags.metric = "euclidean"
+tags."pykdtree.leafsize" = 16
+
+# pykdtree's numpy data generation and tree build are the subject's own work;
+# the range stops at 2^24 because the python-side data generation (numpy
+# ChaCha8) is the practical ceiling, and beyond it pykdtree adds nothing the
+# comparison needs.
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
