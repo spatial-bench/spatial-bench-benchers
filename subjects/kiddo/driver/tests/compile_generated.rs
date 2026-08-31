@@ -46,8 +46,28 @@ fn generated_source_for_a_selection_compiles() {
         eprintln!("skipping: SPATIAL_BENCH_SKIP_DRIFT is set");
         return;
     }
-    let engine_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let catalog = spatial_bench_core::catalog_load::load_dir(&engine_root.join("subjects"))
+    // Day 1.5: the crate lives in the bencher repo beside its manifest.
+    // driver -> kiddo -> subjects: the catalog is right there; the engine is
+    // the bencher checkout's sibling, or SPATIAL_BENCH_ENGINE_SRC.
+    let bencher_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../..")
+        .canonicalize()
+        .expect("bencher root");
+    let engine_root = match std::env::var_os("SPATIAL_BENCH_ENGINE_SRC") {
+        Some(raw) => PathBuf::from(raw)
+            .canonicalize()
+            .expect("--engine-src path"),
+        None => bencher_root
+            .parent()
+            .expect("bencher root has a parent")
+            .join("spatial-bench"),
+    };
+    assert!(
+        engine_root.join("crates/spatial-bench-core").is_dir(),
+        "engine checkout not found at {}",
+        engine_root.display()
+    );
+    let catalog = spatial_bench_core::catalog_load::load_dir(&bencher_root.join("subjects"))
         .expect("vendored manifests should load");
 
     let selection = SelectorSet::parse_all(SELECTION).unwrap();
@@ -73,7 +93,11 @@ fn generated_source_for_a_selection_compiles() {
             toolchain: "drift-check".into(),
             rustflags: catalog.rustflags("kiddo_v6"),
             subject_rev: catalog.pinned_ref("kiddo_v6").unwrap_or_default(),
-            driver_rev: format!("path:{}", engine_root.display()),
+            driver_rev: format!(
+                "path:{};engine:{}",
+                env!("CARGO_MANIFEST_DIR"),
+                engine_root.display()
+            ),
             features: catalog.features("kiddo_v6"),
         },
     );
@@ -89,6 +113,9 @@ fn generated_source_for_a_selection_compiles() {
         subject: "kiddo_v6".into(),
         driver_crate: "spatial-bench-kiddo-v6".into(),
         driver_source: DriverSource::Path(env!("CARGO_MANIFEST_DIR").into()),
+        // The generated package patches the driver's version deps on core +
+        // measure to this engine checkout (day 1.5's [patch.crates-io]).
+        engine_root: Some(engine_root.clone()),
         subject_crate: "kiddo".into(),
         subject_source: SubjectSource::Git {
             repo: repo.expect("cargo-git declares a repo"),

@@ -37,6 +37,10 @@ sha = "0550f806c3f35c33b6bd0aca533112314b6c7c1f"
 [driver]
 adapter = "rust-codegen"
 crate = "spatial-bench-kiddo-v6"
+# Day 1.5: the driver crate lives beside this manifest, in the bencher repo —
+# the engine carries no subject crates. Its version deps on core + measure are
+# patched to the engine checkout at build time.
+path = "driver"
 # Published version of that crate, for builds with no engine source tree to
 # point at (an installed binary). Reviewed with the pin: a driver-crate update
 # is a deliberate engine change, and it feeds the build cache key.

@@ -1,0 +1,14 @@
+[workspace]
+# The bencher repo's rust driver crates. Each subject dir is self-contained:
+# the crate lives beside its subject.toml.
+members = ["subjects/kiddo/driver"]
+resolver = "2"
+
+# Day 1.5: the bencher repo is a sibling of the engine checkout (both under
+# ~/projects, say). The driver crates carry version-only deps on the engine's
+# crates; this table redirects them to the local engine sources so `cargo
+# test` here tests the engine you actually have. When the engine crates are
+# published, this table can go.
+[patch.crates-io]
+spatial-bench-core = { path = "../spatial-bench/crates/spatial-bench-core" }
+spatial-bench-measure = { path = "../spatial-bench/crates/spatial-bench-measure" }
