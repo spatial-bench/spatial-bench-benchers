@@ -1,0 +1,112 @@
+name: Bench Pin Bump
+
+# Runs on pin-bump PRs: benches the new version against the previous one and
+# comments the comparison chart on the PR.
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: bench-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  bench:
+    name: Bench the bumped subject
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      # The engine: built from its own repo at the default branch, since the
+      # bencher checkout pins subject versions, not engine versions.
+      - name: Checkout the engine
+        uses: actions/checkout@v4
+        with:
+          repository: spatial-bench/spatial-bench-core
+          ref: main
+          token: ${{ secrets.BENCHER_PAT }}
+          path: engine
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev pkg-config cmake g++
+
+      - name: Install `stable` Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+
+      - name: Which subject changed?
+        id: subject
+        run: |
+          changed=$(git diff --name-only origin/main...HEAD | grep -oP 'subjects/\K[^/]+' | sort -u | head -1)
+          if [ -z "$changed" ]; then
+            echo "no subject manifest changed — nothing to bench"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "subject=$changed" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the engine
+        if: steps.subject.outputs.skip != 'true'
+        run: cargo build --release -p spatial-bench-cli
+        working-directory: engine
+        env:
+          SPATIAL_BENCH_SUBJECTS: ${{ github.workspace }}/subjects
+
+      # The base version's numbers come from the last run document on main.
+      # The new version's numbers come from a run against the PR's manifest.
+      - name: Run the benchmark (new version)
+        if: steps.subject.outputs.skip != 'true'
+        run: |
+          engine/target/release/spatial-bench run \
+            --subjects ${{ github.workspace }}/subjects \
+            --select 'impl=${{ steps.subject.outputs.subject }},k=1,axis=f64,tree_size=2^16..2^20,query_count=100' \
+            --allow-unfingerprinted
+        env:
+          SPATIAL_BENCH_SUBJECTS: ${{ github.workspace }}/subjects
+
+      - name: Save the run document
+        if: steps.subject.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-documents
+          path: ~/.local/share/spatial-bench/runs/**/*.json
+
+      - name: Comment the result on the PR
+        if: steps.subject.outputs.skip != 'true'
+        run: |
+          # Find the newest run document for this subject.
+          doc=$(ls -t ~/.local/share/spatial-bench/runs/*/*-${{ steps.subject.outputs.subject }}-*.json 2>/dev/null | head -1)
+          if [ -z "$doc" ]; then
+            echo "no run document produced"
+            exit 1
+          fi
+          subject="${{ steps.subject.outputs.subject }}"
+          body=$(python3 -c "
+          import json, sys
+          doc = json.load(open('$doc'))
+          lines = ['## Benchmark results: $subject', '']
+          lines.append('| metric | value |')
+          lines.append('|---|---|')
+          for p in doc['points']:
+              tags = p['tags']
+              desc = ', '.join(f'{k}={v}' for k, v in sorted(tags.items()) if k not in ('impl', 'query'))
+              for name, m in sorted(p['metrics'].items()):
+                  lines.append(f'| {name} ({desc}) | {m[\"point\"]:.2f} {m[\"unit\"]} |')
+          print('\n'.join(lines))
+          ")
+          gh pr comment ${{ github.event.number }} --body "$body"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

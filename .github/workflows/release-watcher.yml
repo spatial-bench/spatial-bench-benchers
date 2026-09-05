@@ -1,0 +1,32 @@
+name: Release Watcher
+
+on:
+  schedule:
+    # Twice daily: cheap, and keeps bump PRs from lagging a release by more
+    # than half a day.
+    - cron: "0 6,18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-releases:
+    name: Check for new releases
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.BENCHER_PAT }}
+
+      - name: Install Python for the checker
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3"
+
+      - name: Check for new releases and open pin-bump PRs
+        env:
+          GITHUB_TOKEN: ${{ secrets.BENCHER_PAT }}
+        run: |
+          python3 .github/scripts/check_releases.py
