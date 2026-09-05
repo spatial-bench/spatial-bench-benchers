@@ -19,6 +19,9 @@ use spatial_bench_core::schema::Point;
 pub use spatial_bench_core::tag::{TagKey, TagValue};
 use std::process::ExitCode;
 
+/// Spawn the dataset generator and read construction + query points from
+/// its stdout (day-1.5 dataset work).
+
 /// One monomorphisation, produced by [`bench_case!`].
 pub struct Registration {
     /// The compile-time coordinate this entry serves, as tag key/value pairs.
@@ -228,8 +231,66 @@ macro_rules! bench_case {
                 let k_nz = ::std::num::NonZeroUsize::new(k).ok_or("k must be greater than zero")?;
                 let query_kind = case.word("query").ok_or("query is missing")?;
 
-                let data: Vec<[Axis; $dims]> = $crate::generate(points, case.point_seed);
-                let probes: Vec<[Axis; $dims]> = $crate::generate(queries, case.query_seed);
+                // Day-1.5 dataset work: points come from the generator
+                // binary, not from in-driver generation. The spec carries the
+                // binary path and the dataset kind.
+                // Day-1.5 dataset work: spawn the dataset generator binary
+                // and read the binary points from its stdout.
+                let gen_output = std::process::Command::new(&case.dataset_generator)
+                    .args([
+                        "--kind",
+                        &case.dataset,
+                        "--dims",
+                        &$dims.to_string(),
+                        "--dtype",
+                        stringify!($axis),
+                        "--tree-count",
+                        &points.to_string(),
+                        "--query-count",
+                        &queries.to_string(),
+                        "--seed",
+                        &case.random_seed.to_string(),
+                    ])
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::inherit())
+                    .output()
+                    .unwrap_or_else(|e| panic!("dataset generator: {e}"));
+                if !gen_output.status.success() {
+                    panic!(
+                        "dataset generator failed:\\n{}",
+                        String::from_utf8_lossy(&gen_output.stderr)
+                    );
+                }
+                // Parse the header to find the data offsets.
+                let hdr = &gen_output.stdout[..29];
+                let tree_count = u64::from_ne_bytes(hdr[17..25].try_into().unwrap()) as usize;
+                let query_count = u64::from_ne_bytes(hdr[25..33].try_into().unwrap()) as usize;
+                let elem_size = std::mem::size_of::<Axis>();
+                let data_start = 29;
+                let data_end = data_start + tree_count * $dims * elem_size;
+                let query_start = data_end;
+                let query_end = query_start + queries * $dims * elem_size;
+                let data: Vec<[Axis; $dims]> = gen_output.stdout[data_start..data_end]
+                    .chunks_exact(elem_size * $dims)
+                    .map(|c| {
+                        let mut arr = [0 as Axis; $dims];
+                        for (d, chunk) in c.chunks_exact(elem_size).enumerate() {
+                            arr[d] = unsafe { std::ptr::read(chunk.as_ptr()) };
+                        }
+                        arr
+                    })
+                    .collect();
+                let probes: Vec<[Axis; $dims]> = gen_output.stdout[query_start..query_end]
+                    .chunks_exact(elem_size * $dims)
+                    .map(|c| {
+                        let mut arr = [0 as Axis; $dims];
+                        for (d, chunk) in c.chunks_exact(elem_size).enumerate() {
+                            arr[d] = unsafe { std::ptr::read(chunk.as_ptr()) };
+                        }
+                        arr
+                    })
+                    .collect();
+                let _ = (tree_count, query_count);
 
                 let tree: Tree = ::kiddo::kd_tree::KdTree::new_from_slice(&data)
                     .map_err(|e| format!("building the tree failed: {e:?}"))?;
@@ -274,17 +335,6 @@ macro_rules! bench_case {
             },
         }
     };
-}
-
-/// Deterministic uniform points. Seeds come from the spec, not from here, so two
-/// subjects in one run see byte-identical data.
-pub fn generate<const D: usize, A>(count: usize, seed: u64) -> Vec<[A; D]>
-where
-    rand::distr::StandardUniform: rand::distr::Distribution<[A; D]>,
-{
-    use rand::{RngExt, SeedableRng};
-    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
-    (0..count).map(|_| rng.random::<[A; D]>()).collect()
 }
 
 #[cfg(test)]
