@@ -54,7 +54,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Build the engine
-        run: cargo build --release -p spatial-bench
+        run: cargo build --release -p spatial-bench -p spatial-bench-dataset
         working-directory: engine
 
       - name: Pin ${{ inputs.subject }} to ${{ inputs.version }}
@@ -75,10 +75,18 @@ jobs:
           while IFS= read -r sel; do
             [ -z "$sel" ] && continue
             echo "=== selection: $sel ==="
+            COUNT=$(./engine/target/release/spatial-bench list \
+              --subjects "$GITHUB_WORKSPACE/subjects" \
+              --select "impl=$SUBJECT,$sel" 2>/dev/null | tail -1)
+            echo "$COUNT"
+            if ! echo "$COUNT" | grep -qE '[1-9][0-9]* points'; then
+              echo "skipping: the subject's manifest covers none of this selection"
+              continue
+            fi
             ./engine/target/release/spatial-bench run \
               --subjects "$GITHUB_WORKSPACE/subjects" \
               --select "impl=$SUBJECT,$sel" \
-              --allow-unfingerprinted || echo "selection not satisfiable: $sel"
+              --allow-unfingerprinted
           done <<< "$SELECTS"
 
       - name: Save run documents
