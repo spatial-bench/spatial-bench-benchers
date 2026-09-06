@@ -43,6 +43,8 @@ matrix.axis = ["f32", "f64"]
 matrix.k = [1, 5, 20, 50]
 
 tags.impl = "nanoflann"
+tags.dataset = "uniform"
+tags.executor = "serial"
 tags.query = "exact_nn"
 tags.dims = 3
 tags.idx = "u64"
