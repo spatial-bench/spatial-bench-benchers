@@ -177,6 +177,9 @@ macro_rules! __kiddo_leaf {
     (flatvec, $axis:ty, $idx:ty, $dims:literal, $bucket:literal) => {
         ::kiddo::leaf_strategy::FlatVec<$axis, $idx, $dims, $bucket>
     };
+    (vec_of_arenas, $axis:ty, $idx:ty, $dims:literal, $bucket:literal) => {
+        ::kiddo::VecOfArenas<$axis, $idx, $dims, $bucket>
+    };
 }
 
 /// Instantiate one monomorphisation of the kiddo harness.
@@ -312,49 +315,138 @@ macro_rules! bench_case {
                 let tree: Tree = ::kiddo::kd_tree::KdTree::new_from_slice(&data)
                     .map_err(|e| format!("building the tree failed: {e:?}"))?;
 
+                // The measured operation's shape and execution are identity
+                // tags: single-query runs walk the probes one at a time
+                // through the query builder; batch-query runs feed the bulk
+                // API in query_batch_size chunks under the tagged executor.
+                let batching = case
+                    .word("query_batching")
+                    .unwrap_or_else(|| "single_query".to_owned());
+                let parallelism = case
+                    .word("parallelism")
+                    .unwrap_or_else(|| "single_threaded".to_owned());
+                let batch_size = case
+                    .int("query_batch_size")
+                    .map(|v| v as usize)
+                    .unwrap_or(queries)
+                    .max(1);
+                let executor = match parallelism.as_str() {
+                    "single_threaded" => ::kiddo::batch::Executor::serial(),
+                    "multi_threaded" => ::kiddo::batch::Executor::parallel(),
+                    other => panic!("unknown parallelism `{other}`"),
+                };
+
                 let body = || -> u64 {
                     let mut checksum = 0u64;
-                    for probe in &probes {
-                        match query_kind.as_str() {
-                            "exact_nn" if k == 1 => {
-                                let hit = tree
-                                    .query(::std::hint::black_box(probe))
-                                    .nearest_one::<::kiddo::SquaredEuclidean<Axis>>()
-                                    .execute();
-                                checksum = checksum.wrapping_add(hit.item as u64);
-                            }
-                            "exact_nn" => {
-                                let hits = tree
-                                    .query(::std::hint::black_box(probe))
-                                    .nearest_n::<::kiddo::SquaredEuclidean<Axis>>(k_nz)
-                                    .execute();
-                                for hit in hits {
-                                    checksum = checksum.wrapping_add(hit.item as u64);
-                                }
-                            }
-                            "within_radius" => {
-                                let radius = $crate::target_results_radius(points as f64) as Axis;
-                                let hits = tree
-                                    .query(::std::hint::black_box(probe))
-                                    .within::<::kiddo::SquaredEuclidean<Axis>>(radius)
-                                    .execute();
-                                for hit in hits {
-                                    checksum = checksum.wrapping_add(hit.item as u64);
-                                }
-                            }
+                    match batching.as_str() {
+                        "single_query" => {
+                            for probe in &probes {
+                                match query_kind.as_str() {
+                                    "exact_nn" if k == 1 => {
+                                        let hit = tree
+                                            .query(::std::hint::black_box(probe))
+                                            .nearest_one::<::kiddo::SquaredEuclidean<Axis>>()
+                                            .execute();
+                                        checksum = checksum.wrapping_add(hit.item as u64);
+                                    }
+                                    "exact_nn" => {
+                                        let hits = tree
+                                            .query(::std::hint::black_box(probe))
+                                            .nearest_n::<::kiddo::SquaredEuclidean<Axis>>(k_nz)
+                                            .execute();
+                                        for hit in hits {
+                                            checksum = checksum.wrapping_add(hit.item as u64);
+                                        }
+                                    }
+                                    "within_radius" => {
+                                        let radius =
+                                            $crate::target_results_radius(points as f64) as Axis;
+                                        let hits = tree
+                                            .query(::std::hint::black_box(probe))
+                                            .within::<::kiddo::SquaredEuclidean<Axis>>(radius)
+                                            .execute();
+                                        for hit in hits {
+                                            checksum = checksum.wrapping_add(hit.item as u64);
+                                        }
+                                    }
 
-                            "best_n_within" => {
-                                let radius = $crate::target_results_radius(points as f64) as Axis;
-                                let hits = tree
-                                    .query(::std::hint::black_box(probe))
-                                    .best_n_within::<::kiddo::SquaredEuclidean<Axis>>(radius, k_nz)
-                                    .execute();
-                                for hit in hits {
-                                    checksum = checksum.wrapping_add(hit.item as u64);
+                                    "best_n_within" => {
+                                        let radius =
+                                            $crate::target_results_radius(points as f64) as Axis;
+                                        let hits = tree
+                                            .query(::std::hint::black_box(probe))
+                                            .best_n_within::<::kiddo::SquaredEuclidean<Axis>>(
+                                                radius, k_nz,
+                                            )
+                                            .execute();
+                                        for hit in hits {
+                                            checksum = checksum.wrapping_add(hit.item as u64);
+                                        }
+                                    }
+                                    _ => {}
                                 }
                             }
-                            _ => {}
                         }
+                        "batch_query" => {
+                            for chunk in probes.chunks(batch_size) {
+                                match query_kind.as_str() {
+                                    "exact_nn" if k == 1 => {
+                                        let hits = tree
+                                            .query_batch(chunk)
+                                            .with_executor(&executor)
+                                            .nearest_one::<::kiddo::SquaredEuclidean<Axis>>()
+                                            .execute();
+                                        for hit in &hits {
+                                            checksum = checksum.wrapping_add(hit.item as u64);
+                                        }
+                                    }
+                                    "exact_nn" => {
+                                        let hits = tree
+                                            .query_batch(chunk)
+                                            .with_executor(&executor)
+                                            .nearest_n::<::kiddo::SquaredEuclidean<Axis>>(k_nz)
+                                            .execute();
+                                        for per_query in &hits {
+                                            for hit in per_query {
+                                                checksum = checksum.wrapping_add(hit.item as u64);
+                                            }
+                                        }
+                                    }
+                                    "within_radius" => {
+                                        let radius =
+                                            $crate::target_results_radius(points as f64) as Axis;
+                                        let hits = tree
+                                            .query_batch(chunk)
+                                            .with_executor(&executor)
+                                            .within::<::kiddo::SquaredEuclidean<Axis>>(radius)
+                                            .execute();
+                                        for per_query in &hits {
+                                            for hit in per_query {
+                                                checksum = checksum.wrapping_add(hit.item as u64);
+                                            }
+                                        }
+                                    }
+                                    "best_n_within" => {
+                                        let radius =
+                                            $crate::target_results_radius(points as f64) as Axis;
+                                        let hits = tree
+                                            .query_batch(chunk)
+                                            .with_executor(&executor)
+                                            .best_n_within::<::kiddo::SquaredEuclidean<Axis>>(
+                                                radius, k_nz,
+                                            )
+                                            .execute();
+                                        for per_query in &hits {
+                                            for hit in per_query {
+                                                checksum = checksum.wrapping_add(hit.item as u64);
+                                            }
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        other => panic!("unknown query_batching `{other}`"),
                     }
                     checksum
                 };
