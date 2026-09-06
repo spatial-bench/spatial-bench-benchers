@@ -66,6 +66,7 @@ matrix.k = [1, 50]
 
 tags.impl = "pykdtree"
 tags.dataset = "uniform"
+tags."pykdtree.leafsize" = 16
 tags.query_batching = "batch_query"
 tags.parallelism = "single_threaded"
 tags.isa = "native"

@@ -276,9 +276,11 @@ macro_rules! bench_case {
                     );
                 }
                 // Parse the header to find the data offsets.
+                // Header: SBDS + u32 version + u32 dims + u8 dtype +
+                // u64 tree_count (13..21) + u64 query_count (21..29).
                 let hdr = &gen_output.stdout[..29];
-                let tree_count = u64::from_ne_bytes(hdr[17..25].try_into().unwrap()) as usize;
-                let query_count = u64::from_ne_bytes(hdr[25..33].try_into().unwrap()) as usize;
+                let tree_count = u64::from_ne_bytes(hdr[13..21].try_into().unwrap()) as usize;
+                let query_count = u64::from_ne_bytes(hdr[21..29].try_into().unwrap()) as usize;
                 let elem_size = std::mem::size_of::<Axis>();
                 let data_start = 29;
                 let data_end = data_start + tree_count * $dims * elem_size;

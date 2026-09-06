@@ -21,12 +21,13 @@ spelling may differ while its value does not.
 """
 
 import json
+import subprocess
 import sys
 import time
 
 import numpy as np
 
-HARNESS_VERSION = 1
+HARNESS_VERSION = 2
 MASK32 = 0xFFFFFFFF
 MASK64 = 0xFFFFFFFFFFFFFFFF
 
@@ -198,10 +199,32 @@ def main() -> int:
             fail(f"unknown axis `{axis}`")
         dtype = np.float64 if axis == "f64" else np.float32
 
-        # Day 1.5: the harness's numpy-based generator is dtype-parameterised
-        # the same way pykdtree is — float32 data in, float32 queries out.
-        points = generate(tree_size, case["point_seed"], dims, dtype)
-        probes = generate(query_count, case["query_seed"], dims, dtype)
+        # Harness v2: points come from the engine's dataset generator binary.
+        # Header (native endian): SBDS + u32 version + u32 dims + u8 dtype +
+        # u64 tree_count (13..21) + u64 query_count (21..29); body from byte
+        # 29 is tree points then query points, dims-contiguous.
+        proc = subprocess.run(
+            [
+                case["dataset_generator"],
+                "--kind", case["dataset"],
+                "--dims", str(dims),
+                "--dtype", axis,
+                "--tree-count", str(tree_size),
+                "--query-count", str(query_count),
+                "--seed", str(case["random_seed"]),
+            ],
+            stdout=subprocess.PIPE,
+            check=True,
+        )
+        raw = proc.stdout
+        tree_count = int.from_bytes(raw[13:21], sys.byteorder)
+        data = np.frombuffer(raw, dtype=dtype, offset=29)
+        points = np.ascontiguousarray(data[: tree_count * dims]).reshape(
+            tree_count, dims
+        )
+        probes = np.ascontiguousarray(data[tree_count * dims :]).reshape(
+            query_count, dims
+        )
 
         tree = KDTree(np.ascontiguousarray(points), leafsize=leafsize)
 

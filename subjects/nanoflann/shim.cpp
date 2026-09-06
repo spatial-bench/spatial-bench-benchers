@@ -93,15 +93,53 @@ double ms_since(std::chrono::steady_clock::time_point t) {
 /// shape (mean with a 95% normal-approximation CI, median, mad); the timed
 /// region is the query loop — index build stays outside, exactly like the
 /// rust drivers.
+/// Harness v2: spawn the engine's dataset generator and consume its binary
+/// stdout. Header (native endian): "SBDS" + u32 version + u32 dims + u8 dtype
+/// + u64 tree_count (13..21) + u64 query_count (21..29); body from byte 29 is
+/// tree points then query points, dims-contiguous.
+static std::vector<char> read_dataset(const std::string& generator,
+                                      const std::string& kind, std::int64_t dims,
+                                      const std::string& dtype,
+                                      std::uint64_t tree, std::uint64_t query,
+                                      std::uint64_t seed) {
+    if (generator.empty()) {
+        std::fprintf(stderr, "nanoflann driver: spec carries no dataset_generator\n");
+        std::exit(5);
+    }
+    std::string cmd = generator + " --kind " + kind + " --dims " +
+                      std::to_string(dims) + " --dtype " + dtype +
+                      " --tree-count " + std::to_string(tree) + " --query-count " +
+                      std::to_string(query) + " --seed " + std::to_string(seed);
+    FILE* p = popen(cmd.c_str(), "r");
+    if (p == nullptr) {
+        std::fprintf(stderr, "nanoflann driver: cannot spawn the dataset generator\n");
+        std::exit(5);
+    }
+    std::vector<char> buf;
+    char chunk[65536];
+    std::size_t n;
+    while ((n = std::fread(chunk, 1, sizeof chunk, p)) > 0)
+        buf.insert(buf.end(), chunk, chunk + n);
+    if (pclose(p) != 0 || buf.size() < 29) {
+        std::fprintf(stderr, "nanoflann driver: the dataset generator failed\n");
+        std::exit(5);
+    }
+    return buf;
+}
+
 template <typename A, int D>
 std::string run_typed(const sbjson::Value& c, const Budget& budget,
-                      std::int64_t tree_size, std::int64_t queries, std::int64_t k,
-                      std::int64_t leaf, std::uint64_t point_seed,
-                      std::uint64_t query_seed, const std::string& query_kind) {
-    auto points = sbgen::ChaCha8::generate<A, D>(
-        static_cast<std::uint64_t>(tree_size), point_seed);
-    auto probes = sbgen::ChaCha8::generate<A, D>(
-        static_cast<std::uint64_t>(queries), query_seed);
+                      std::int64_t queries, std::int64_t k,
+                      std::int64_t leaf, const std::vector<char>& raw,
+                      std::size_t tree_count, const std::string& query_kind) {
+    // Body layout (native endian, same machine): tree points then query
+    // points, dims-contiguous.
+    std::vector<A> points(tree_count * static_cast<std::size_t>(D));
+    std::size_t body = 29 + points.size() * sizeof(A);
+    std::size_t query_total = (raw.size() - body) / sizeof(A);
+    std::vector<A> probes(query_total);
+    std::memcpy(points.data(), raw.data() + 29, points.size() * sizeof(A));
+    std::memcpy(probes.data(), raw.data() + body, probes.size() * sizeof(A));
 
     Cloud<A, D> cloud{points};
     using Index = nanoflann::KDTreeSingleIndexAdaptor<
@@ -229,8 +267,8 @@ int main(int argc, char** argv) {
 
     const sbjson::Value* version = spec.get("harness_version");
     if (version == nullptr || version->t != sbjson::Value::T::Int ||
-        version->i != 1) {
-        std::fprintf(stderr, "nanoflann driver: spec is not harness version 1\n");
+        version->i != 2) {
+        std::fprintf(stderr, "nanoflann driver: spec is not harness version 2\n");
         return 2;
     }
     const sbjson::Value* budget_v = spec.get("budget");
@@ -271,20 +309,36 @@ int main(int argc, char** argv) {
                          query_kind.c_str());
             return 5;
         }
-        std::uint64_t point_seed = 0;
-        std::uint64_t query_seed = 0;
-        if (auto* s = c.get("point_seed"); s && s->t == sbjson::Value::T::Int)
-            point_seed = static_cast<std::uint64_t>(s->i);
-        if (auto* s = c.get("query_seed"); s && s->t == sbjson::Value::T::Int)
-            query_seed = static_cast<std::uint64_t>(s->i);
+        std::string generator = c.get("dataset_generator") != nullptr &&
+                                        c.get("dataset_generator")->t ==
+                                            sbjson::Value::T::Str
+                                    ? c.get("dataset_generator")->s
+                                    : "";
+        std::string dataset = c.get("dataset") != nullptr &&
+                                      c.get("dataset")->t == sbjson::Value::T::Str
+                                  ? c.get("dataset")->s
+                                  : "uniform";
+        std::uint64_t seed = 0;
+        if (auto* s = c.get("random_seed"); s && s->t == sbjson::Value::T::Int)
+            seed = static_cast<std::uint64_t>(s->i);
+        // Harness v2: points come from the engine's dataset generator binary.
+        std::vector<char> raw = read_dataset(generator, dataset, dims, axis,
+                                             tree_size, queries, seed);
+        std::size_t tree_count = (raw.size() - 29) / (dims * (axis == "f64" ? 8 : 4)) == 0
+                                     ? 0
+                                     : [&] {
+                                           std::uint64_t n;
+                                           std::memcpy(&n, raw.data() + 13, 8);
+                                           return static_cast<std::size_t>(n);
+                                       }();
 
         std::string point;
         bool dispatched = false;
         auto run_with_dims = [&](auto dims_const) {
             constexpr int D = decltype(dims_const)::value;
             if (axis == "f64") {
-                point = run_typed<double, D>(c, budget, tree_size, queries, k, leaf,
-                                             point_seed, query_seed, query_kind);
+                point = run_typed<double, D>(c, budget, queries, k, leaf, raw,
+                                             tree_count, query_kind);
                 dispatched = true;
             } else if (axis == "f32") {
                 point = run_typed<float, D>(c, budget, tree_size, queries, k, leaf,
