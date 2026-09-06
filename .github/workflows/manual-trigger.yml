@@ -1,18 +1,18 @@
 name: Manual Benchmark
 
+# Runs a subject against the standard corpus (corpus.toml), optionally
+# pinning a specific version first. This is the entry point for
+# benchmarking a newly-published library release on demand.
+
 on:
   workflow_dispatch:
     inputs:
       subject:
-        description: "Subject from the catalog (e.g. kiddo_v6)"
+        description: "Subject from the catalog (kiddo_v6, nanoflann, pykdtree)"
         required: true
         type: string
       version:
-        description: "Version to pin (e.g. v6.1.0 or 1.4.3)"
-        required: true
-        type: string
-      select:
-        description: "Selector expression (default: the full standard corpus)"
+        description: "Version to pin (e.g. v6.1.0, 1.7.1, 1.4.3); empty = keep the current pin"
         required: false
         type: string
 
@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   bench:
-    name: "Manual Bench: ${{ inputs.subject }} @ ${{ inputs.version }}"
+    name: "Bench ${{ inputs.subject }} ${{ inputs.version }}"
     runs-on: [self-hosted, benchmark]
     steps:
       - uses: actions/checkout@v4
@@ -40,36 +40,36 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libfontconfig1-dev pkg-config cmake g++
 
-      - name: Install `stable` Toolchain
+      - name: Install `stable` toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Build the engine
         run: cargo build --release -p spatial-bench-cli
         working-directory: engine
 
-      - name: Update the pin for ${{ inputs.subject }}
+      - name: Pin ${{ inputs.subject }} to ${{ inputs.version }}
+        if: inputs.version != ''
         run: |
           manifest="subjects/${{ inputs.subject }}/subject.toml"
-          if [ ! -f "$manifest" ]; then
-            echo "error: no manifest at $manifest"
-            exit 1
-          fi
-          # Update pinned_ref to the requested version.
           sed -i "s|pinned_ref = \".*\"|pinned_ref = \"${{ inputs.version }}\"|" "$manifest"
-          echo "updated $manifest to pin ${{ inputs.version }}"
+          # Drop the sha — the build resolves the new ref and records it.
+          sed -i "/^sha = /d" "$manifest"
+          grep -E "pinned_ref|^sha" "$manifest" || true
 
-      - name: Run the benchmark
+      - name: Run the standard corpus
         run: |
-          SELECT="${{ inputs.select }}"
-          if [ -z "$SELECT" ]; then
-            SELECT="impl=${{ inputs.subject }}"
-          fi
-          ./engine/target/release/spatial-bench run \
-            --subjects ${{ github.workspace }}/subjects \
-            --select "$SELECT" \
-            --allow-unfingerprinted
-        env:
-          SPATIAL_BENCH_SUBJECTS: ${{ github.workspace }}/subjects
+          SUBJECT="${{ inputs.subject }}"
+          SELECTS=$(grep '^select = ' corpus.toml | sed 's/^select = "//; s/"$//')
+          echo "Running $SUBJECT against the standard corpus:"
+          echo "$SELECTS"
+          while IFS= read -r sel; do
+            [ -z "$sel" ] && continue
+            echo "=== selection: $sel ==="
+            ./engine/target/release/spatial-bench run \
+              --subjects "$GITHUB_WORKSPACE/subjects" \
+              --select "impl=$SUBJECT,$sel" \
+              --allow-unfingerprinted || echo "selection not satisfiable: $sel"
+          done <<< "$SELECTS"
 
       - name: Save run documents
         if: always()

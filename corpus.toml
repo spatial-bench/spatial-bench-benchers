@@ -1,0 +1,52 @@
+# The standard corpus: the default benchmark selections run against every
+# newly-published subject version. Each selection names a slice of the
+# cartesian product (axis x query x executor x tree size) that every
+# capable subject runs. A selection the subject's manifest cannot satisfy
+# is reported and skipped, so subjects run the subset they support.
+#
+# Single-point queries (exact_nn) have no parallel selection: a lone query
+# cannot be parallelised, so kiddo's manifest fixes them to the serial
+# executor. The batch radius queries carry the serial/parallel axis.
+#
+# Tree sizes span 2^16..2^24 (the manifests' full param range) for every
+# selection; the weekly full-corpus run covers the same selections.
+
+[[case]]
+name = "nn-k1-f64-serial"
+select = "query=exact_nn,k=1,axis=f64,dims=3,dataset=uniform,executor=serial,tree_size=2^16..2^24"
+description = "Single nearest neighbour, f64, serial — the primary scaling curve."
+
+[[case]]
+name = "nn-k1-f32-serial"
+select = "query=exact_nn,k=1,axis=f32,dims=3,dataset=uniform,executor=serial,tree_size=2^16..2^24"
+description = "Single nearest neighbour, f32, serial — 32-bit precision cost."
+
+[[case]]
+name = "nn-k5-f64-serial"
+select = "query=exact_nn,k=5,axis=f64,dims=3,dataset=uniform,executor=serial,tree_size=2^16..2^24"
+description = "k=5 nearest neighbours, f64, serial — small-k neighbour query."
+
+[[case]]
+name = "nn-k50-f64-serial"
+select = "query=exact_nn,k=50,axis=f64,dims=3,dataset=uniform,executor=serial,tree_size=2^16..2^24"
+description = "k=50 nearest neighbours, f64, serial — large-k neighbour query."
+
+[[case]]
+name = "within-f64-serial"
+select = "query=within_radius,axis=f64,dims=3,dataset=uniform,executor=serial,tree_size=2^16..2^24"
+description = "Radius query (~100 results), f64, serial."
+
+[[case]]
+name = "within-f64-parallel"
+select = "query=within_radius,axis=f64,dims=3,dataset=uniform,executor=parallel,tree_size=2^16..2^24"
+description = "Radius query (~100 results), f64, parallel — parallel speedup."
+
+[[case]]
+name = "best-n-within-f64-serial"
+select = "query=best_n_within,axis=f64,dims=3,dataset=uniform,executor=serial,tree_size=2^16..2^24"
+description = "Best-k-within-radius query (~100 results, k=5), f64, serial."
+
+[[case]]
+name = "best-n-within-f64-parallel"
+select = "query=best_n_within,axis=f64,dims=3,dataset=uniform,executor=parallel,tree_size=2^16..2^24"
+description = "Best-k-within-radius query (~100 results, k=5), f64, parallel."

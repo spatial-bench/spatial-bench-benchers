@@ -108,6 +108,7 @@ matrix."kiddo.stem" = [
 ]
 
 tags.impl = "kiddo_v6"
+tags.dataset = "uniform"
 tags.query = "exact_nn"
 tags.dims = 3
 tags.idx = "u32"
@@ -117,7 +118,7 @@ tags."kiddo.block_height" = 3
 tags."kiddo.leaf" = "flatvec"
 tags."kiddo.bucket" = 32
 tags."kiddo.storage" = "heap"
-tags."kiddo.executor" = "serial"
+tags.executor = "serial"
 
 # The full range worth sweeping. NOT a capability limit: what actually fits is a
 # function of host memory, which is per-machine and so cannot live here -- the
@@ -148,7 +149,7 @@ matrix.axis = ["f32", "f64"]
 matrix."kiddo.stem" = [
   "eytzinger", "donnelly_simd_full",
 ]
-matrix."kiddo.executor" = ["serial", "parallel"]
+matrix.executor = ["serial", "parallel"]
 
 params.tree_size.range = "2^16..2^24"
 params.tree_size.default = "2^20"
@@ -173,7 +174,7 @@ tags."kiddo.target_results" = 100
 
 matrix.axis = ["f64"]
 matrix."kiddo.stem" = ["eytzinger"]
-matrix."kiddo.executor" = ["serial", "parallel"]
+matrix.executor = ["serial", "parallel"]
 
 params.tree_size.range = "2^16..2^24"
 params.tree_size.default = "2^20"

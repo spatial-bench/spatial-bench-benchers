@@ -1,22 +1,20 @@
 name: Standard Corpus
 
-# Runs the full standard corpus for each subject: the cartesian product of
-# axis, query kind, executor, and tree size (per the manifest's declared
-# cases). Triggered on push to main and on a schedule (weekly).
+# Runs the standard corpus (corpus.toml) for each subject. Each selection
+# runs only the cases the subject's manifest covers; selections the
+# subject cannot satisfy are reported and skipped.
+#
+# Triggered on push to master, weekly schedule, and manually.
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   schedule:
-    - cron: "0 3 * * 1"  # weekly, Monday 03:00 UTC
+    - cron: "0 3 * * 1" # weekly, Monday 03:00 UTC
   workflow_dispatch:
     inputs:
       subject:
         description: "Which subject to bench (all if empty)"
-        required: false
-        type: string
-      version:
-        description: "Override the pinned version (e.g. v6.2.0)"
         required: false
         type: string
 
@@ -25,11 +23,13 @@ permissions:
 
 jobs:
   bench:
-    name: Bench ${{ matrix.subject }}
+    name: "Bench ${{ matrix.subject }}"
     runs-on: [self-hosted, benchmark]
     strategy:
       matrix:
         subject: ${{ fromJSON(vars.SUBJECTS || '["kiddo_v6", "nanoflann", "pykdtree"]') }}
+      # One job at a time — the runner processes a single benchmark run.
+      max-parallel: 1
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libfontconfig1-dev pkg-config cmake g++
 
-      - name: Install `stable` Toolchain
+      - name: Install `stable` toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Build the engine
@@ -57,16 +57,23 @@ jobs:
 
       - name: Run the standard corpus
         run: |
-          SELECT="impl=${{ matrix.subject }}"
+          SUBJECT="${{ matrix.subject }}"
           if [ -n "${{ inputs.subject }}" ]; then
-            SELECT="impl=${{ inputs.subject }}"
+            SUBJECT="${{ inputs.subject }}"
           fi
-          ./engine/target/release/spatial-bench run \
-            --subjects ${{ github.workspace }}/subjects \
-            --select "$SELECT" \
-            --allow-unfingerprinted
-        env:
-          SPATIAL_BENCH_SUBJECTS: ${{ github.workspace }}/subjects
+          # Extract the select expressions from corpus.toml.
+          SELECTS=$(grep '^select = ' corpus.toml | sed 's/^select = "//; s/"$//')
+          echo "Running $SUBJECT against the standard corpus:"
+          echo "$SELECTS"
+          while IFS= read -r sel; do
+            [ -z "$sel" ] && continue
+            name=$(echo "$sel" | cut -d, -f1 | tr '=' '_' | tr -d ' ')
+            echo "=== selection: $sel ==="
+            ./engine/target/release/spatial-bench run \
+              --subjects "$GITHUB_WORKSPACE/subjects" \
+              --select "impl=$SUBJECT,$sel" \
+              --allow-unfingerprinted || echo "selection not satisfiable: $sel"
+          done <<< "$SELECTS"
 
       - name: Save run documents
         if: always()
