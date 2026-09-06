@@ -1,27 +1,61 @@
 # The standard corpus: the default benchmark selections run against every
 # newly-published subject version.
 #
-# The cartesian product lives in the manifests, not here. Each selection
-# pins only the dimensions that are global to the corpus — one scalar axis,
-# the uniform dataset, the default configuration, and the tree-size range —
-# and sweeps everything else every subject's manifest declares: query
-# kinds, k values, parallelism, query batching, and each subject's own
-# parameter spaces. A subject runs the subset it supports; dimensions it
-# cannot satisfy are simply absent from its points.
+# The cartesian product lives in the manifests, not here — but the corpus
+# still names its slices explicitly: one selection per scalar axis per query
+# kind, each pinning the global dimensions (uniform dataset, default
+# configuration, tree-size range) and sweeping everything else the subject's
+# manifest declares for that kind: k values, parallelism, query batching,
+# query_batch_size, and each subject's own parameters. A subject runs the
+# subset it supports; kinds it cannot satisfy are simply absent.
+#
+# `exact_nn` spans nearest-one (k=1) through nearest_n(k) — the k axis is
+# part of the sweep, not separate selections.
 #
 # `defaults_or_tuned = default` selects the out-of-the-box experience: the
 # configuration a new user gets from the library's quick-start entry point,
-# as declared in each manifest's [defaults] section. Tuned runs — parameters
-# deliberately selected to showcase a library's best performance — are
-# submitted separately and labelled by the runner; the web front-end can
-# then chart defaults alone or overlay the tuned results.
+# as declared in each manifest's [defaults] section, on the best ISA the
+# runner offers (isa = native). Tuned runs — parameters deliberately
+# selected to showcase a library's best performance — are submitted
+# separately and labelled by the runner; the web front-end can then chart
+# defaults alone or overlay the tuned results.
 
 [[case]]
-name = "f64-default"
-select = "axis=f64,dims=3,dataset=uniform,defaults_or_tuned=default,tree_size=2^16..2^24"
-description = "Everything the product declares, f64, default configuration."
+name = "f64-nn"
+select = "query=exact_nn,axis=f64,dims=3,dataset=uniform,defaults_or_tuned=default,tree_size=2^16..2^24"
+description = "Nearest-neighbour queries (k=1 through k=50), f64, default config."
 
 [[case]]
-name = "f32-default"
-select = "axis=f32,dims=3,dataset=uniform,defaults_or_tuned=default,tree_size=2^16..2^24"
-description = "Everything the product declares, f32, default configuration."
+name = "f64-within"
+select = "query=within_radius,axis=f64,dims=3,dataset=uniform,defaults_or_tuned=default,tree_size=2^16..2^24"
+description = "Radius queries (~100 results), f64, default config."
+
+[[case]]
+name = "f64-best-n-within"
+select = "query=best_n_within,axis=f64,dims=3,dataset=uniform,defaults_or_tuned=default,tree_size=2^16..2^24"
+description = "Best-k-within-radius queries (~100 results, k=5), f64, default config."
+
+[[case]]
+name = "f64-nearest-n-within"
+select = "query=nearest_n_within,axis=f64,dims=3,dataset=uniform,defaults_or_tuned=default,tree_size=2^16..2^24"
+description = "Batch nearest-n-within-radius queries (k=5), f64, default config."
+
+[[case]]
+name = "f32-nn"
+select = "query=exact_nn,axis=f32,dims=3,dataset=uniform,defaults_or_tuned=default,tree_size=2^16..2^24"
+description = "Nearest-neighbour queries (k=1 through k=50), f32, default config."
+
+[[case]]
+name = "f32-within"
+select = "query=within_radius,axis=f32,dims=3,dataset=uniform,defaults_or_tuned=default,tree_size=2^16..2^24"
+description = "Radius queries (~100 results), f32, default config."
+
+[[case]]
+name = "f32-best-n-within"
+select = "query=best_n_within,axis=f32,dims=3,dataset=uniform,defaults_or_tuned=default,tree_size=2^16..2^24"
+description = "Best-k-within-radius queries (~100 results, k=5), f32, default config."
+
+[[case]]
+name = "f32-nearest-n-within"
+select = "query=nearest_n_within,axis=f32,dims=3,dataset=uniform,defaults_or_tuned=default,tree_size=2^16..2^24"
+description = "Batch nearest-n-within-radius queries (k=5), f32, default config."

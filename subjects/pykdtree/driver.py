@@ -185,8 +185,15 @@ def main() -> int:
         leafsize = int(tags["pykdtree.leafsize"])
         axis = tags["axis"]
         query_kind = tags["query"]
+        batching = tags.get("query_batching", "single_query")
+        parallelism = tags.get("parallelism", "single_threaded")
+        batch_size = max(1, int(tags.get("query_batch_size", query_count)))
         if query_kind != "exact_nn":
             fail(f"query kind `{query_kind}` is not implemented")
+        if batching not in ("single_query", "batch_query"):
+            fail(f"unknown query_batching `{batching}`")
+        if parallelism != "single_threaded":
+            fail("pykdtree declares no multi_threaded executor")
         if axis not in ("f32", "f64"):
             fail(f"unknown axis `{axis}`")
         dtype = np.float64 if axis == "f64" else np.float32
@@ -200,13 +207,25 @@ def main() -> int:
 
         def body() -> int:
             checksum = 0
-            for probe in probes:
-                # One query per probe — the same operation shape the rust
-                # drivers' query loop performs (§11's comparability model).
-                # pykdtree squeezes the result for single-point queries, so
-                # index the ravelled form for either shape.
-                _, idx = tree.query(probe.reshape(1, -1).astype(dtype), k=k)
-                checksum = (checksum + int(np.asarray(idx).ravel()[k - 1])) & MASK64
+            if batching == "single_query":
+                for probe in probes:
+                    # One query per probe — the same operation shape the rust
+                    # drivers' query loop performs (§11's comparability model).
+                    # pykdtree squeezes the result for single-point queries, so
+                    # index the ravelled form for either shape.
+                    _, idx = tree.query(probe.reshape(1, -1).astype(dtype), k=k)
+                    checksum = (checksum + int(np.asarray(idx).ravel()[k - 1])) & MASK64
+            else:
+                # pykdtree's query API is batch-native: one call takes the
+                # whole chunk matrix. query_batch_size paces the call size.
+                for start in range(0, len(probes), batch_size):
+                    chunk = np.ascontiguousarray(
+                        probes[start : start + batch_size], dtype=dtype
+                    )
+                    _, idx = tree.query(chunk, k=k)
+                    checksum = (
+                        checksum + int(np.asarray(idx).astype(np.int64).sum())
+                    ) & MASK64
             return checksum
 
         warm_start = time.perf_counter_ns()
