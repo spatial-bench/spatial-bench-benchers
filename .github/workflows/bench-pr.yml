@@ -70,7 +70,7 @@ jobs:
 
       - name: Build the engine
         if: steps.subject.outputs.skip != 'true'
-        run: cargo build --release -p spatial-bench-cli
+        run: cargo build --release -p spatial-bench
         working-directory: engine
         env:
           SPATIAL_BENCH_SUBJECTS: ${{ github.workspace }}/subjects
