@@ -333,7 +333,7 @@ macro_rules! bench_case {
                                 }
                             }
                             "within_radius" => {
-                                let radius = $crate::target_results_radius(points as f64);
+                                let radius = $crate::target_results_radius(points as f64) as Axis;
                                 let hits = tree
                                     .query(::std::hint::black_box(probe))
                                     .within::<::kiddo::SquaredEuclidean<Axis>>(radius)
@@ -344,10 +344,10 @@ macro_rules! bench_case {
                             }
 
                             "best_n_within" => {
-                                let radius = $crate::target_results_radius(points as f64);
+                                let radius = $crate::target_results_radius(points as f64) as Axis;
                                 let hits = tree
                                     .query(::std::hint::black_box(probe))
-                                    .best_n_within::<::kiddo::SquaredEuclidean<Axis>>(k_nz, radius)
+                                    .best_n_within::<::kiddo::SquaredEuclidean<Axis>>(radius, k_nz)
                                     .execute();
                                 for hit in hits {
                                     checksum = checksum.wrapping_add(hit.item as u64);
