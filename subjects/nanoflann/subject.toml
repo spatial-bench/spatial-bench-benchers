@@ -50,7 +50,7 @@ tags.query = "exact_nn"
 tags.dims = 3
 tags.idx = "u64"
 tags.metric = "squared_euclidean"
-tags.isa = "avx512"
+tags.isa = "native"
 tags."nanoflann.leaf_max_size" = 32
 
 params.tree_size.range = "2^16..2^29"

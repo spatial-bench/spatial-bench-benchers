@@ -40,6 +40,7 @@ tags.impl = "pykdtree"
 tags.dataset = "uniform"
 tags.query_batching = "single_query"
 tags.parallelism = "single_threaded"
+tags.isa = "native"
 tags.query = "exact_nn"
 tags.dims = 3
 tags.metric = "euclidean"
@@ -53,3 +54,27 @@ params.tree_size.range = "2^16..2^24"
 params.tree_size.default = "2^20"
 params.query_count.kind = "int"
 params.query_count.default = 1000
+
+# Batch: pykdtree's query API is batch-native, so the bulk path is part of
+# the out-of-the-box experience. Single-point calls squeeze the result for
+# one probe; the batch path feeds query_batch_size probes per call.
+[[case]]
+runners = ["criterion", "perf"]
+
+matrix.axis = ["f32", "f64"]
+matrix.k = [1, 50]
+
+tags.impl = "pykdtree"
+tags.dataset = "uniform"
+tags.query_batching = "batch_query"
+tags.parallelism = "single_threaded"
+tags.isa = "native"
+tags.query = "exact_nn"
+tags.dims = 3
+
+params.tree_size.range = "2^16..2^29"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
+params.query_batch_size.kind = "int"
+params.query_batch_size.default = 1000

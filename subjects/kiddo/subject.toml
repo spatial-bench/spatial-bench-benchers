@@ -47,8 +47,9 @@ path = "driver"
 version = "0.1.0"
 macro = "bench_case"
 features = ["test_utils", "simd"]
-# The cyclic SIMD strategies need AVX-512, which needs the native target.
-rustflags = "-C target-cpu=native"
+# The build flags come from the cases' isa tag (native → target-cpu=native,
+# avx512 → x86-64-v4, ...): ISA is a compiler input the engine owns, so the
+# manifest does not hardcode a target flag.
 # Core keys that are generic parameters for kiddo specifically. KdTree
 # monomorphises on scalar type, dimensionality and index type; a subject that
 # dispatched on them at run time would list none of them here.
@@ -66,7 +67,7 @@ compile_time = ["axis", "dims", "idx"]
 "kiddo.bucket" = 32
 "kiddo.block_height" = 3
 "kiddo.storage" = "heap"
-isa = "scalar"
+isa = "native"
 
 # Extension keys this subject contributes, namespaced under `kiddo.` so two
 # subjects can both have a `stem` or a `layout` without colliding.
@@ -119,7 +120,7 @@ tags.query = "exact_nn"
 tags.dims = 3
 tags.idx = "u32"
 tags.metric = "squared_euclidean"
-tags.isa = "scalar"
+tags.isa = "native"
 tags.query_batching = "single_query"
 tags.parallelism = "single_threaded"
 tags."kiddo.block_height" = 3
@@ -142,7 +143,7 @@ tags.dims = 3
 tags.idx = "u32"
 tags.metric = "squared_euclidean"
 tags.dataset = "uniform"
-tags.isa = "scalar"
+tags.isa = "native"
 tags.query_batching = "single_query"
 tags.parallelism = "single_threaded"
 tags."kiddo.stem" = "eytzinger"
@@ -169,7 +170,7 @@ tags.idx = "u32"
 tags.metric = "squared_euclidean"
 tags.dataset = "uniform"
 tags.k = 5
-tags.isa = "scalar"
+tags.isa = "native"
 tags.query_batching = "single_query"
 tags.parallelism = "single_threaded"
 tags."kiddo.stem" = "eytzinger"
@@ -197,7 +198,7 @@ tags.dims = 3
 tags.idx = "u32"
 tags.metric = "squared_euclidean"
 tags.dataset = "uniform"
-tags.isa = "scalar"
+tags.isa = "native"
 tags.query_batching = "batch_query"
 tags."kiddo.stem" = "eytzinger"
 tags."kiddo.leaf" = "vec_of_arenas"
@@ -225,7 +226,7 @@ tags.dims = 3
 tags.idx = "u32"
 tags.metric = "squared_euclidean"
 tags.dataset = "uniform"
-tags.isa = "scalar"
+tags.isa = "native"
 tags.query_batching = "batch_query"
 tags."kiddo.stem" = "eytzinger"
 tags."kiddo.leaf" = "vec_of_arenas"
@@ -254,7 +255,7 @@ tags.idx = "u32"
 tags.metric = "squared_euclidean"
 tags.dataset = "uniform"
 tags.k = 5
-tags.isa = "scalar"
+tags.isa = "native"
 tags.query_batching = "batch_query"
 tags."kiddo.stem" = "eytzinger"
 tags."kiddo.leaf" = "vec_of_arenas"
@@ -284,7 +285,7 @@ tags.idx = "u32"
 tags.metric = "squared_euclidean"
 tags.dataset = "uniform"
 tags.k = 5
-tags.isa = "scalar"
+tags.isa = "native"
 tags.query_batching = "batch_query"
 tags."kiddo.stem" = "eytzinger"
 tags."kiddo.leaf" = "vec_of_arenas"
