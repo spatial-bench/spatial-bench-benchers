@@ -82,8 +82,7 @@ jobs:
         run: |
           engine/target/release/spatial-bench run \
             --subjects ${{ github.workspace }}/subjects \
-            --select 'impl=${{ steps.subject.outputs.subject }},k=1,axis=f64,tree_size=2^16..2^20,query_count=100' \
-            --allow-unfingerprinted
+            --select 'impl=${{ steps.subject.outputs.subject }},k=1,axis=f64,tree_size=2^16..2^20,query_count=100'
         env:
           SPATIAL_BENCH_SUBJECTS: ${{ github.workspace }}/subjects
 
