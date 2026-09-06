@@ -4,12 +4,12 @@ name: Standard Corpus
 # runs only the cases the subject's manifest covers; selections the
 # subject cannot satisfy are reported and skipped.
 #
-# Triggered on push to master, weekly schedule, and manually.
+# Triggered on a weekly schedule and manually; master pushes do not run
+# the full corpus (hours of runner time) — bench-pr covers pin bumps.
 
 on:
   schedule:
     - cron: "0 3 * * 1" # weekly, Monday 03:00 UTC
-  workflow_dispatch:
   workflow_dispatch:
     inputs:
       subject:
