@@ -133,13 +133,20 @@ std::string run_typed(const sbjson::Value& c, const Budget& budget,
                       std::int64_t leaf, const std::vector<char>& raw,
                       std::size_t tree_count, const std::string& query_kind) {
     // Body layout (native endian, same machine): tree points then query
-    // points, dims-contiguous.
-    std::vector<A> points(tree_count * static_cast<std::size_t>(D));
-    std::size_t body = 29 + points.size() * sizeof(A);
-    std::size_t query_total = (raw.size() - body) / sizeof(A);
-    std::vector<A> probes(query_total);
-    std::memcpy(points.data(), raw.data() + 29, points.size() * sizeof(A));
-    std::memcpy(probes.data(), raw.data() + body, probes.size() * sizeof(A));
+    // points, dims-contiguous. The Cloud consumes array rows, so the flat
+    // buffer is reassembled.
+    std::size_t body_off = 29;
+    std::size_t tree_total = tree_count * static_cast<std::size_t>(D);
+    std::size_t query_total = (raw.size() - body_off) / sizeof(A) - tree_total;
+    std::vector<A> flat(tree_total + query_total);
+    std::memcpy(flat.data(), raw.data() + body_off, flat.size() * sizeof(A));
+    std::vector<std::array<A, D>> points(tree_count);
+    std::vector<std::array<A, D>> probes(query_total / static_cast<std::size_t>(D));
+    for (std::size_t i = 0; i < tree_count; ++i)
+        std::memcpy(&points[i], flat.data() + i * D, sizeof(std::array<A, D>));
+    for (std::size_t i = 0; i < probes.size(); ++i)
+        std::memcpy(&probes[i], flat.data() + tree_total + i * D,
+                    sizeof(std::array<A, D>));
 
     Cloud<A, D> cloud{points};
     using Index = nanoflann::KDTreeSingleIndexAdaptor<
@@ -311,11 +318,11 @@ int main(int argc, char** argv) {
         }
         std::string generator = c.get("dataset_generator") != nullptr &&
                                         c.get("dataset_generator")->t ==
-                                            sbjson::Value::T::Str
+                                            sbjson::Value::T::String
                                     ? c.get("dataset_generator")->s
                                     : "";
         std::string dataset = c.get("dataset") != nullptr &&
-                                      c.get("dataset")->t == sbjson::Value::T::Str
+                                      c.get("dataset")->t == sbjson::Value::T::String
                                   ? c.get("dataset")->s
                                   : "uniform";
         std::uint64_t seed = 0;
@@ -341,8 +348,8 @@ int main(int argc, char** argv) {
                                              tree_count, query_kind);
                 dispatched = true;
             } else if (axis == "f32") {
-                point = run_typed<float, D>(c, budget, tree_size, queries, k, leaf,
-                                            point_seed, query_seed, query_kind);
+                point = run_typed<float, D>(c, budget, queries, k, leaf, raw,
+                                            tree_count, query_kind);
                 dispatched = true;
             }
         };
