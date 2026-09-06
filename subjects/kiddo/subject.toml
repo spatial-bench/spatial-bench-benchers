@@ -54,6 +54,20 @@ rustflags = "-C target-cpu=native"
 # dispatched on them at run time would list none of them here.
 compile_time = ["axis", "dims", "idx"]
 
+# The out-of-the-box configuration of kiddo v6.1.0: what the root-level
+# `ImmutableKdTree<AX, K>` convenience alias expands to. The runner labels a
+# case `defaults_or_tuned = default` when every key here matches the case's
+# tags, `tuned` when any differs — so a casual viewer can tell the
+# quick-start experience from deliberate configuration without either being
+# hidden.
+[defaults]
+"kiddo.stem" = "eytzinger"
+"kiddo.leaf" = "vec_of_arenas"
+"kiddo.bucket" = 32
+"kiddo.block_height" = 3
+"kiddo.storage" = "heap"
+isa = "scalar"
+
 # Extension keys this subject contributes, namespaced under `kiddo.` so two
 # subjects can both have a `stem` or a `layout` without colliding.
 #
@@ -77,19 +91,229 @@ stem.values = [
 block_height.compile_time = true
 block_height.kind = "int"
 leaf.compile_time = true
-leaf.values = ["flatvec"]
+leaf.values = ["flatvec", "vec_of_arenas"]
 bucket.compile_time = true
 bucket.kind = "int"
 storage.values = ["heap", "archived_mmap", "archived_owned"]
-executor.values = ["serial", "parallel", "tuned"]
 hugepages.values = ["on", "off"]
 target_results.kind = "int"
+
+# ---------------------------------------------------------------------------
+# Default configuration — the out-of-the-box experience, labelled
+# `defaults_or_tuned = default` by the runner from [defaults] above. The
+# standard corpus runs these: the full axis x query x parallelism x batching
+# product the library supports, on the quick-start tree.
+# ---------------------------------------------------------------------------
+
+# exact_nn through the single-point query builder. One query cannot be
+# parallelised, so these are single_threaded by construction.
+[[case]]
+runners = ["criterion", "perf"]
+
+matrix.axis = ["f32", "f64"]
+matrix.k = [1, 5, 20, 50]
+
+tags.impl = "kiddo_v6"
+tags.dataset = "uniform"
+tags.query = "exact_nn"
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.isa = "scalar"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+tags."kiddo.block_height" = 3
+tags."kiddo.stem" = "eytzinger"
+tags."kiddo.leaf" = "vec_of_arenas"
+tags."kiddo.bucket" = 32
+tags."kiddo.storage" = "heap"
+
+params.tree_size.range = "2^16..2^29"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
+
+# within_radius through the single-point query builder.
+[[case]]
+runners = ["criterion", "perf"]
+tags.impl = "kiddo_v6"
+tags.query = "within_radius"
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.dataset = "uniform"
+tags.isa = "scalar"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+tags."kiddo.stem" = "eytzinger"
+tags."kiddo.leaf" = "vec_of_arenas"
+tags."kiddo.bucket" = 32
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+tags."kiddo.target_results" = 100
+
+matrix.axis = ["f32", "f64"]
+
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 100
+
+# best_n_within through the single-point query builder.
+[[case]]
+runners = ["criterion", "perf"]
+tags.impl = "kiddo_v6"
+tags.query = "best_n_within"
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.dataset = "uniform"
+tags.k = 5
+tags.isa = "scalar"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+tags."kiddo.stem" = "eytzinger"
+tags."kiddo.leaf" = "vec_of_arenas"
+tags."kiddo.bucket" = 32
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+tags."kiddo.target_results" = 100
+
+matrix.axis = ["f32", "f64"]
+
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 100
+
+# Batch exact_nn: many query points per call through `query_batch`, which is
+# where kiddo's multi-threaded execution lives. The batch ends are the
+# interesting ones: nearest_one (k=1) and nearest_n(50).
+[[case]]
+runners = ["criterion", "perf"]
+tags.impl = "kiddo_v6"
+tags.query = "exact_nn"
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.dataset = "uniform"
+tags.isa = "scalar"
+tags.query_batching = "batch_query"
+tags."kiddo.stem" = "eytzinger"
+tags."kiddo.leaf" = "vec_of_arenas"
+tags."kiddo.bucket" = 32
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+
+matrix.axis = ["f32", "f64"]
+matrix.k = [1, 50]
+matrix.parallelism = ["single_threaded", "multi_threaded"]
+
+params.tree_size.range = "2^16..2^29"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
+params.query_batch_size.kind = "int"
+params.query_batch_size.default = 1000
+
+# Batch within_radius.
+[[case]]
+runners = ["criterion", "perf"]
+tags.impl = "kiddo_v6"
+tags.query = "within_radius"
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.dataset = "uniform"
+tags.isa = "scalar"
+tags.query_batching = "batch_query"
+tags."kiddo.stem" = "eytzinger"
+tags."kiddo.leaf" = "vec_of_arenas"
+tags."kiddo.bucket" = 32
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+tags."kiddo.target_results" = 100
+
+matrix.axis = ["f32", "f64"]
+matrix.parallelism = ["single_threaded", "multi_threaded"]
+
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 100
+params.query_batch_size.kind = "int"
+params.query_batch_size.default = 100
+
+# Batch best_n_within.
+[[case]]
+runners = ["criterion", "perf"]
+tags.impl = "kiddo_v6"
+tags.query = "best_n_within"
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.dataset = "uniform"
+tags.k = 5
+tags.isa = "scalar"
+tags.query_batching = "batch_query"
+tags."kiddo.stem" = "eytzinger"
+tags."kiddo.leaf" = "vec_of_arenas"
+tags."kiddo.bucket" = 32
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+tags."kiddo.target_results" = 100
+
+matrix.axis = ["f32", "f64"]
+matrix.parallelism = ["single_threaded", "multi_threaded"]
+
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 100
+params.query_batch_size.kind = "int"
+params.query_batch_size.default = 100
+
+# Batch nearest_n_within — this query kind exists only on the batch side of
+# kiddo's API, so there is no single_query counterpart anywhere in the catalog.
+[[case]]
+runners = ["criterion", "perf"]
+tags.impl = "kiddo_v6"
+tags.query = "nearest_n_within"
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.dataset = "uniform"
+tags.k = 5
+tags.isa = "scalar"
+tags.query_batching = "batch_query"
+tags."kiddo.stem" = "eytzinger"
+tags."kiddo.leaf" = "vec_of_arenas"
+tags."kiddo.bucket" = 32
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+tags."kiddo.target_results" = 100
+
+matrix.axis = ["f32", "f64"]
+matrix.parallelism = ["single_threaded", "multi_threaded"]
+
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 100
+params.query_batch_size.kind = "int"
+params.query_batch_size.default = 100
+
+# ---------------------------------------------------------------------------
+# Tuned configuration — deliberate parameter selection, labelled
+# `defaults_or_tuned = tuned` by the runner. These showcase what kiddo can do
+# with workload-specific configuration; the web front-end keeps them out of
+# default charts.
+# ---------------------------------------------------------------------------
 
 # One declaration for every strategy. The cyclic SIMD ones need a specific block
 # height per scalar type, but that is a property of the strategy rather than
 # something a manifest should have to encode: the driver derives it and the
 # emitted point records what was actually compiled.
-# Standard corpus: exact_nn across k values.
 [[case]]
 runners = ["criterion", "perf"]
 
@@ -114,11 +338,12 @@ tags.dims = 3
 tags.idx = "u32"
 tags.metric = "squared_euclidean"
 tags.isa = "avx512"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
 tags."kiddo.block_height" = 3
 tags."kiddo.leaf" = "flatvec"
 tags."kiddo.bucket" = 32
 tags."kiddo.storage" = "heap"
-tags.executor = "serial"
 
 # The full range worth sweeping. NOT a capability limit: what actually fits is a
 # function of host memory, which is per-machine and so cannot live here -- the
@@ -128,9 +353,10 @@ params.tree_size.default = "2^20"
 params.query_count.kind = "int"
 params.query_count.default = 1000
 
-# Standard corpus: within_radius — all points within a radius.
-# The radius is computed per case by the driver to target ~100 results,
-# making the comparison fair across tree sizes.
+# Tuned within_radius on the SIMD stems. The radius is computed per case by
+# the driver to target ~100 results, making the comparison fair across tree
+# sizes. Single-point queries cannot be parallelised, so these are
+# single_threaded by construction.
 [[case]]
 runners = ["criterion", "perf"]
 tags.impl = "kiddo_v6"
@@ -139,6 +365,9 @@ tags.dims = 3
 tags.idx = "u32"
 tags.metric = "squared_euclidean"
 tags.dataset = "uniform"
+tags.isa = "avx512"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
 tags."kiddo.leaf" = "flatvec"
 tags."kiddo.bucket" = 32
 tags."kiddo.block_height" = 3
@@ -149,14 +378,13 @@ matrix.axis = ["f32", "f64"]
 matrix."kiddo.stem" = [
   "eytzinger", "donnelly_simd_full",
 ]
-matrix.executor = ["serial", "parallel"]
 
 params.tree_size.range = "2^16..2^24"
 params.tree_size.default = "2^20"
 params.query_count.kind = "int"
 params.query_count.default = 100
 
-# Standard corpus: best_n_within — best n within a radius.
+# Tuned best_n_within on the SIMD stem.
 [[case]]
 runners = ["criterion", "perf"]
 tags.impl = "kiddo_v6"
@@ -166,6 +394,9 @@ tags.idx = "u32"
 tags.metric = "squared_euclidean"
 tags.dataset = "uniform"
 tags.k = 5
+tags.isa = "avx512"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
 tags."kiddo.leaf" = "flatvec"
 tags."kiddo.bucket" = 32
 tags."kiddo.block_height" = 3
@@ -174,7 +405,6 @@ tags."kiddo.target_results" = 100
 
 matrix.axis = ["f64"]
 matrix."kiddo.stem" = ["eytzinger"]
-matrix.executor = ["serial", "parallel"]
 
 params.tree_size.range = "2^16..2^24"
 params.tree_size.default = "2^20"
