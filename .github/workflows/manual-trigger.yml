@@ -1,0 +1,79 @@
+name: Manual Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      subject:
+        description: "Subject from the catalog (e.g. kiddo_v6)"
+        required: true
+        type: string
+      version:
+        description: "Version to pin (e.g. v6.1.0 or 1.4.3)"
+        required: true
+        type: string
+      select:
+        description: "Selector expression (default: the full standard corpus)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: "Manual Bench: ${{ inputs.subject }} @ ${{ inputs.version }}"
+    runs-on: [self-hosted, benchmark]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      - name: Checkout the engine
+        uses: actions/checkout@v4
+        with:
+          repository: spatial-bench/spatial-bench-core
+          ref: main
+          path: engine
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev pkg-config cmake g++
+
+      - name: Install `stable` Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Build the engine
+        run: cargo build --release -p spatial-bench-cli
+        working-directory: engine
+
+      - name: Update the pin for ${{ inputs.subject }}
+        run: |
+          manifest="subjects/${{ inputs.subject }}/subject.toml"
+          if [ ! -f "$manifest" ]; then
+            echo "error: no manifest at $manifest"
+            exit 1
+          fi
+          # Update pinned_ref to the requested version.
+          sed -i "s|pinned_ref = \".*\"|pinned_ref = \"${{ inputs.version }}\"|" "$manifest"
+          echo "updated $manifest to pin ${{ inputs.version }}"
+
+      - name: Run the benchmark
+        run: |
+          SELECT="${{ inputs.select }}"
+          if [ -z "$SELECT" ]; then
+            SELECT="impl=${{ inputs.subject }}"
+          fi
+          ./engine/target/release/spatial-bench run \
+            --subjects ${{ github.workspace }}/subjects \
+            --select "$SELECT" \
+            --allow-unfingerprinted
+        env:
+          SPATIAL_BENCH_SUBJECTS: ${{ github.workspace }}/subjects
+
+      - name: Save run documents
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runs-${{ inputs.subject }}-${{ inputs.version }}
+          path: ~/.local/share/spatial-bench/runs/

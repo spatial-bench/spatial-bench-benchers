@@ -83,11 +83,13 @@ bucket.kind = "int"
 storage.values = ["heap", "archived_mmap", "archived_owned"]
 executor.values = ["serial", "parallel", "tuned"]
 hugepages.values = ["on", "off"]
+target_results.kind = "int"
 
 # One declaration for every strategy. The cyclic SIMD ones need a specific block
 # height per scalar type, but that is a property of the strategy rather than
 # something a manifest should have to encode: the driver derives it and the
 # emitted point records what was actually compiled.
+# Standard corpus: exact_nn across k values.
 [[case]]
 runners = ["criterion", "perf"]
 
@@ -124,3 +126,56 @@ params.tree_size.range = "2^16..2^29"
 params.tree_size.default = "2^20"
 params.query_count.kind = "int"
 params.query_count.default = 1000
+
+# Standard corpus: within_radius — all points within a radius.
+# The radius is computed per case by the driver to target ~100 results,
+# making the comparison fair across tree sizes.
+[[case]]
+runners = ["criterion", "perf"]
+tags.impl = "kiddo_v6"
+tags.query = "within_radius"
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.dataset = "uniform"
+tags."kiddo.leaf" = "flatvec"
+tags."kiddo.bucket" = 32
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+tags."kiddo.target_results" = 100
+
+matrix.axis = ["f32", "f64"]
+matrix."kiddo.stem" = [
+  "eytzinger", "donnelly_simd_full",
+]
+matrix."kiddo.executor" = ["serial", "parallel"]
+
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 100
+
+# Standard corpus: best_n_within — best n within a radius.
+[[case]]
+runners = ["criterion", "perf"]
+tags.impl = "kiddo_v6"
+tags.query = "best_n_within"
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.dataset = "uniform"
+tags.k = 5
+tags."kiddo.leaf" = "flatvec"
+tags."kiddo.bucket" = 32
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+tags."kiddo.target_results" = 100
+
+matrix.axis = ["f64"]
+matrix."kiddo.stem" = ["eytzinger"]
+matrix."kiddo.executor" = ["serial", "parallel"]
+
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 100

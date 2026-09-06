@@ -1,0 +1,76 @@
+name: Standard Corpus
+
+# Runs the full standard corpus for each subject: the cartesian product of
+# axis, query kind, executor, and tree size (per the manifest's declared
+# cases). Triggered on push to main and on a schedule (weekly).
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 3 * * 1"  # weekly, Monday 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      subject:
+        description: "Which subject to bench (all if empty)"
+        required: false
+        type: string
+      version:
+        description: "Override the pinned version (e.g. v6.2.0)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: Bench ${{ matrix.subject }}
+    runs-on: [self-hosted, benchmark]
+    strategy:
+      matrix:
+        subject: ${{ fromJSON(vars.SUBJECTS || '["kiddo_v6", "nanoflann", "pykdtree"]') }}
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      - name: Checkout the engine
+        uses: actions/checkout@v4
+        with:
+          repository: spatial-bench/spatial-bench-core
+          ref: main
+          path: engine
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev pkg-config cmake g++
+
+      - name: Install `stable` Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Build the engine
+        run: cargo build --release -p spatial-bench-cli
+        working-directory: engine
+
+      - name: Run the standard corpus
+        run: |
+          SELECT="impl=${{ matrix.subject }}"
+          if [ -n "${{ inputs.subject }}" ]; then
+            SELECT="impl=${{ inputs.subject }}"
+          fi
+          ./engine/target/release/spatial-bench run \
+            --subjects ${{ github.workspace }}/subjects \
+            --select "$SELECT" \
+            --allow-unfingerprinted
+        env:
+          SPATIAL_BENCH_SUBJECTS: ${{ github.workspace }}/subjects
+
+      - name: Save run documents
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runs-${{ matrix.subject }}
+          path: ~/.local/share/spatial-bench/runs/

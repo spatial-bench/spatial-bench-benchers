@@ -20,8 +20,7 @@ pub use spatial_bench_core::tag::{TagKey, TagValue};
 use std::process::ExitCode;
 
 /// Spawn the dataset generator and read construction + query points from
-/// its stdout (day-1.5 dataset work).
-
+/// its stdout (the dataset generator streams binary points).
 /// One monomorphisation, produced by [`bench_case!`].
 pub struct Registration {
     /// The compile-time coordinate this entry serves, as tag key/value pairs.
@@ -182,6 +181,18 @@ macro_rules! __kiddo_leaf {
 
 /// Instantiate one monomorphisation of the kiddo harness.
 ///
+/// Compute a search radius that yields approximately `target` results for
+/// `count` uniformly distributed points in the unit D-cube. The formula for
+/// the expected count in a D-ball of radius r is: count × V_D(r) where
+/// V_D(r) = π^(D/2) r^D / Γ(D/2 + 1). Solving for r given a target count
+/// keeps the result count roughly constant across tree sizes, making the
+/// comparison fair.
+pub fn target_results_radius(count: f64) -> f64 {
+    const TARGET: f64 = 100.0;
+    // V_3(r) = (4/3)π r³ for 3D
+    ((3.0 * TARGET) / (4.0 * std::f64::consts::PI * count)).cbrt()
+}
+
 /// Arguments arrive in the order the engine generates them: alphabetical by tag
 /// key, with the subject namespace stripped.
 ///
@@ -275,7 +286,10 @@ macro_rules! bench_case {
                     .map(|c| {
                         let mut arr = [0 as Axis; $dims];
                         for (d, chunk) in c.chunks_exact(elem_size).enumerate() {
-                            arr[d] = unsafe { std::ptr::read(chunk.as_ptr()) };
+                            arr[d] = unsafe {
+                                let aligned = chunk.as_ptr() as *const Axis;
+                                std::ptr::read(aligned)
+                            };
                         }
                         arr
                     })
@@ -285,7 +299,10 @@ macro_rules! bench_case {
                     .map(|c| {
                         let mut arr = [0 as Axis; $dims];
                         for (d, chunk) in c.chunks_exact(elem_size).enumerate() {
-                            arr[d] = unsafe { std::ptr::read(chunk.as_ptr()) };
+                            arr[d] = unsafe {
+                                let aligned = chunk.as_ptr() as *const Axis;
+                                std::ptr::read(aligned)
+                            };
                         }
                         arr
                     })
@@ -315,15 +332,32 @@ macro_rules! bench_case {
                                     checksum = checksum.wrapping_add(hit.item as u64);
                                 }
                             }
+                            "within_radius" => {
+                                let radius = $crate::target_results_radius(points as f64);
+                                let hits = tree
+                                    .query(::std::hint::black_box(probe))
+                                    .within::<::kiddo::SquaredEuclidean<Axis>>(radius)
+                                    .execute();
+                                for hit in hits {
+                                    checksum = checksum.wrapping_add(hit.item as u64);
+                                }
+                            }
+
+                            "best_n_within" => {
+                                let radius = $crate::target_results_radius(points as f64);
+                                let hits = tree
+                                    .query(::std::hint::black_box(probe))
+                                    .best_n_within::<::kiddo::SquaredEuclidean<Axis>>(k_nz, radius)
+                                    .execute();
+                                for hit in hits {
+                                    checksum = checksum.wrapping_add(hit.item as u64);
+                                }
+                            }
                             _ => {}
                         }
                     }
                     checksum
                 };
-
-                if !matches!(query_kind.as_str(), "exact_nn") {
-                    return Err(format!("query kind `{query_kind}` is not implemented yet"));
-                }
                 let mut point = $crate::measure(case, budget, queries as u64, body)?;
                 // Record the block height the binary was built with, which the
                 // strategy may have overridden.
