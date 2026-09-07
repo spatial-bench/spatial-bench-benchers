@@ -35,6 +35,9 @@ jobs:
         with:
           show-progress: false
 
+      - name: Clear previous run documents
+        run: rm -rf ~/.local/share/spatial-bench/runs
+
       - name: Checkout the engine
         uses: actions/checkout@v4
         with:
@@ -97,3 +100,29 @@ jobs:
         with:
           name: runs-${{ matrix.subject }}
           path: ~/.local/share/spatial-bench/runs/
+      - name: Checkout the results repo
+        if: success()
+        uses: actions/checkout@v4
+        with:
+          repository: spatial-bench/spatial-bench-results
+          ref: main
+          token: ${{ secrets.RESULTS_PAT }}
+          path: spatial-bench-results
+
+      - name: Install gh
+        if: success()
+        run: |
+          GH_VERSION=2.62.0
+          curl -sL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz" | tar xz
+          echo "$PWD/gh_${GH_VERSION}_linux_amd64/bin" >> "$GITHUB_PATH"
+
+      - name: Submit the results
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.RESULTS_PAT }}
+        run: |
+          git -C spatial-bench-results config user.name "spatial-bench-ci"
+          git -C spatial-bench-results config user.email "ci@spatial-bench.invalid"
+          ./engine/target/release/spatial-bench submit \
+            --to "$GITHUB_WORKSPACE/spatial-bench-results"
+
