@@ -74,18 +74,13 @@ path = "driver-v5"
 macro = "bench_case"
 compile_time = ["axis", "dims", "idx"]
 
-# The out-of-the-box configuration of kiddo v6.1.0: what the root-level
-# `ImmutableKdTree<AX, K>` convenience alias expands to. The runner labels a
-# case `defaults_or_tuned = default` when every key here matches the case's
-# tags, `tuned` when any differs — so a casual viewer can tell the
-# quick-start experience from deliberate configuration without either being
-# hidden.
+# The out-of-the-box configuration, as both drivers' quick-start entry
+# points build it: no explicit ISA restriction (best available on the
+# runner). The runner labels a case `defaults_or_tuned = default` when every
+# key here matches the case's tags, `tuned` when any differs — the v6
+# driver's tuned cases are all the explicit-SIMD stems (isa = avx512), and
+# kiddo 5's tree has no configuration choices at all.
 [defaults]
-"kiddo.stem" = "eytzinger"
-"kiddo.leaf" = "vec_of_arenas"
-"kiddo.bucket" = 32
-"kiddo.block_height" = 3
-"kiddo.storage" = "heap"
 isa = "native"
 
 # Extension keys this subject contributes, namespaced under `kiddo.` so two
@@ -444,8 +439,9 @@ params.query_count.default = 100
 # ---------------------------------------------------------------------------
 # kiddo 5.x coverage (driver = "v5"). Only reachable when the pin is a 5.x
 # version: the pin's version selects the driver, and these cases drop out of
-# a 6.x pin's plan. The default tree's structure is what kiddo 6's root
-# alias replicates, so the kiddo.* tags below are the same defaults.
+# a 6.x pin's plan. kiddo 5's immutable tree has no structural parameters —
+# no stem, leaf or storage tags exist for it, and its default tree is what
+# kiddo 6's root alias replicates.
 # ---------------------------------------------------------------------------
 
 [[case]]
@@ -464,11 +460,6 @@ tags.metric = "squared_euclidean"
 tags.isa = "native"
 tags.query_batching = "single_query"
 tags.parallelism = "single_threaded"
-tags."kiddo.stem" = "eytzinger"
-tags."kiddo.leaf" = "vec_of_arenas"
-tags."kiddo.bucket" = 32
-tags."kiddo.block_height" = 3
-tags."kiddo.storage" = "heap"
 
 params.tree_size.range = "2^16..2^29"
 params.tree_size.default = "2^20"
@@ -487,11 +478,6 @@ tags.dataset = "uniform"
 tags.isa = "native"
 tags.query_batching = "single_query"
 tags.parallelism = "single_threaded"
-tags."kiddo.stem" = "eytzinger"
-tags."kiddo.leaf" = "vec_of_arenas"
-tags."kiddo.bucket" = 32
-tags."kiddo.block_height" = 3
-tags."kiddo.storage" = "heap"
 tags."kiddo.target_results" = 100
 
 matrix.axis = ["f32", "f64"]
@@ -514,11 +500,6 @@ tags.k = 5
 tags.isa = "native"
 tags.query_batching = "single_query"
 tags.parallelism = "single_threaded"
-tags."kiddo.stem" = "eytzinger"
-tags."kiddo.leaf" = "vec_of_arenas"
-tags."kiddo.bucket" = 32
-tags."kiddo.block_height" = 3
-tags."kiddo.storage" = "heap"
 tags."kiddo.target_results" = 100
 
 matrix.axis = ["f32", "f64"]
@@ -541,11 +522,6 @@ tags.k = 5
 tags.isa = "native"
 tags.query_batching = "single_query"
 tags.parallelism = "single_threaded"
-tags."kiddo.stem" = "eytzinger"
-tags."kiddo.leaf" = "vec_of_arenas"
-tags."kiddo.bucket" = 32
-tags."kiddo.block_height" = 3
-tags."kiddo.storage" = "heap"
 tags."kiddo.target_results" = 100
 
 matrix.axis = ["f32", "f64"]
