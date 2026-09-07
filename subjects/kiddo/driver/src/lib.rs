@@ -239,7 +239,9 @@ macro_rules! bench_case {
                     .int("query_count")
                     .ok_or("query_count is missing or not an integer")?
                     as usize;
-                let k = case.int("k").ok_or("k is missing or not an integer")? as usize;
+                // within_radius cases carry no k (a radius query has no result count);
+                // everything that reads k declares it.
+                let k = case.int("k").unwrap_or(1) as usize;
                 // kiddo takes a NonZero here, so a k of 0 is rejected up front
                 // rather than panicking inside the timed region.
                 let k_nz = ::std::num::NonZeroUsize::new(k).ok_or("k must be greater than zero")?;
