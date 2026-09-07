@@ -61,6 +61,19 @@ features = ["test_utils", "simd"]
 # dispatched on them at run time would list none of them here.
 compile_time = ["axis", "dims", "idx"]
 
+# kiddo 5.x: the direct-method API — no builder, no batch, no stem choices.
+# The immutable tree's default structure is the only structure. Its default
+# tree is what kiddo 6's root alias replicates, so the same [defaults] apply.
+[[driver]]
+name = "v5"
+min_supported_semver = "5.0.0"
+max_supported_semver = "6.0.0"
+adapter = "rust-codegen"
+crate = "spatial-bench-kiddo-v5"
+path = "driver-v5"
+macro = "bench_case"
+compile_time = ["axis", "dims", "idx"]
+
 # The out-of-the-box configuration of kiddo v6.1.0: what the root-level
 # `ImmutableKdTree<AX, K>` convenience alias expands to. The runner labels a
 # case `defaults_or_tuned = default` when every key here matches the case's
@@ -422,6 +435,120 @@ tags."kiddo.target_results" = 100
 
 matrix.axis = ["f64"]
 matrix."kiddo.stem" = ["eytzinger"]
+
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 100
+
+# ---------------------------------------------------------------------------
+# kiddo 5.x coverage (driver = "v5"). Only reachable when the pin is a 5.x
+# version: the pin's version selects the driver, and these cases drop out of
+# a 6.x pin's plan. The default tree's structure is what kiddo 6's root
+# alias replicates, so the kiddo.* tags below are the same defaults.
+# ---------------------------------------------------------------------------
+
+[[case]]
+driver = "v5"
+runners = ["criterion", "perf"]
+
+matrix.axis = ["f32", "f64"]
+matrix.k = [1, 5, 20, 50]
+
+tags.impl = "kiddo"
+tags.dataset = "uniform"
+tags.query = "exact_nn"
+tags.dims = 3
+tags.idx = "u64"
+tags.metric = "squared_euclidean"
+tags.isa = "native"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+tags."kiddo.stem" = "eytzinger"
+tags."kiddo.leaf" = "vec_of_arenas"
+tags."kiddo.bucket" = 32
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+
+params.tree_size.range = "2^16..2^29"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
+
+[[case]]
+driver = "v5"
+runners = ["criterion", "perf"]
+tags.impl = "kiddo"
+tags.query = "within_radius"
+tags.dims = 3
+tags.idx = "u64"
+tags.metric = "squared_euclidean"
+tags.dataset = "uniform"
+tags.isa = "native"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+tags."kiddo.stem" = "eytzinger"
+tags."kiddo.leaf" = "vec_of_arenas"
+tags."kiddo.bucket" = 32
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+tags."kiddo.target_results" = 100
+
+matrix.axis = ["f32", "f64"]
+
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 100
+
+[[case]]
+driver = "v5"
+runners = ["criterion", "perf"]
+tags.impl = "kiddo"
+tags.query = "best_n_within"
+tags.dims = 3
+tags.idx = "u64"
+tags.metric = "squared_euclidean"
+tags.dataset = "uniform"
+tags.k = 5
+tags.isa = "native"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+tags."kiddo.stem" = "eytzinger"
+tags."kiddo.leaf" = "vec_of_arenas"
+tags."kiddo.bucket" = 32
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+tags."kiddo.target_results" = 100
+
+matrix.axis = ["f32", "f64"]
+
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 100
+
+[[case]]
+driver = "v5"
+runners = ["criterion", "perf"]
+tags.impl = "kiddo"
+tags.query = "nearest_n_within"
+tags.dims = 3
+tags.idx = "u64"
+tags.metric = "squared_euclidean"
+tags.dataset = "uniform"
+tags.k = 5
+tags.isa = "native"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+tags."kiddo.stem" = "eytzinger"
+tags."kiddo.leaf" = "vec_of_arenas"
+tags."kiddo.bucket" = 32
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+tags."kiddo.target_results" = 100
+
+matrix.axis = ["f32", "f64"]
 
 params.tree_size.range = "2^16..2^24"
 params.tree_size.default = "2^20"

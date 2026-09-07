@@ -1,0 +1,26 @@
+[package]
+name = "spatial-bench-kiddo-v5"
+description = "spatial-bench driver for kiddo 5.x"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82.0"
+license = "MIT OR Apache-2.0"
+
+# Not a member of the bencher workspace: the CLI builds this on demand, so
+# building the catalog does not drag kiddo in.
+#
+# The engine owns the harness, so the measurement code lives here and kiddo
+# contributes only its public API. kiddo never depends on this crate.
+
+# No kiddo dependency: every reference to it is inside a macro_rules body and
+# expands at the call site, so only the *generated* crate needs kiddo. That is
+# what lets the CLI point a build at a pinned ref or a working tree without
+# this crate hardcoding a path to either.
+
+[dependencies]
+# Version-only deps: the crate lives in the bencher repo and carries no path
+# into the engine. When the engine builds it, the generated package's
+# [patch.crates-io] table redirects these to the local engine checkout; once
+# the crates are published, no patch is needed and the registry versions stand.
+spatial-bench-core = { version = "0.1.0" }
+spatial-bench-measure = { version = "0.1.0" }
