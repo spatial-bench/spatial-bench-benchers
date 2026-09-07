@@ -64,7 +64,19 @@ jobs:
         if: inputs.version != ''
         run: |
           manifest="subjects/${{ inputs.subject }}/subject.toml"
-          sed -i "s|pinned_ref = \".*\"|pinned_ref = \"${{ inputs.version }}\"|" "$manifest"
+          kind=$(grep -m1 '^kind = ' "$manifest" | cut -d'"' -f2)
+          repo=$(grep -m1 '^repo = ' "$manifest" | cut -d'"' -f2)
+          want="${{ inputs.version }}"
+          # Repos tag releases with their own convention (v6.3.0 vs 6.3.0):
+          # ask the repo which form exists rather than guessing.
+          if [ "$kind" != "pypi" ] && [ -n "$repo" ]; then
+            if ! git ls-remote --tags "$repo" "refs/tags/$want" | grep -q .; then
+              if git ls-remote --tags "$repo" "refs/tags/v$want" | grep -q .; then
+                want="v$want"
+              fi
+            fi
+          fi
+          sed -i "s|pinned_ref = \".*\"|pinned_ref = \"$want\"|" "$manifest"
           # Drop the sha — the build resolves the new ref and records it.
           sed -i "/^sha = /d" "$manifest"
           grep -E "pinned_ref|^sha" "$manifest" || true
