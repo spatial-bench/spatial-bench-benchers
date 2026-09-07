@@ -16,7 +16,7 @@ domain = "spatial_index"
 # A floor, not a pin: the engine resolves one toolchain per run as the highest
 # floor among selected subjects, so everything in a run is built the same way.
 [toolchain]
-min_rustc = "1.89.0"
+min_rustc = "1.90.0"
 
 [source]
 kind = "cargo-git"
