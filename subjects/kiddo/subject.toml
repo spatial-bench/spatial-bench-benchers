@@ -10,7 +10,7 @@
 # inside the timed region are all decided here rather than by the subject.
 
 schema = 1
-name = "kiddo_v6"
+name = "kiddo"
 domain = "spatial_index"
 
 # A floor, not a pin: the engine resolves one toolchain per run as the highest
@@ -34,7 +34,13 @@ sha = "0550f806c3f35c33b6bd0aca533112314b6c7c1f"
 # per selected compile-time combination, then builds and runs it. Instantiating
 # the full cross product is what makes kiddo's own fuzz binary take an age to
 # compile.
-[driver]
+# Two drivers, one per major API: kiddo 6 rebuilt its query surface around
+# the builder and batch executors, so a 5.x pin needs the 5.x driver. The
+# pin's version selects the block; cases name the driver they run under.
+[[driver]]
+name = "v6"
+min_supported_semver = "6.0.0"
+max_supported_semver = "7.0.0"
 adapter = "rust-codegen"
 crate = "spatial-bench-kiddo-v6"
 # Day 1.5: the driver crate lives beside this manifest, in the bencher repo —
@@ -109,12 +115,13 @@ target_results.kind = "int"
 # exact_nn through the single-point query builder. One query cannot be
 # parallelised, so these are single_threaded by construction.
 [[case]]
+driver = "v6"
 runners = ["criterion", "perf"]
 
 matrix.axis = ["f32", "f64"]
 matrix.k = [1, 5, 20, 50]
 
-tags.impl = "kiddo_v6"
+tags.impl = "kiddo"
 tags.dataset = "uniform"
 tags.query = "exact_nn"
 tags.dims = 3
@@ -136,8 +143,9 @@ params.query_count.default = 1000
 
 # within_radius through the single-point query builder.
 [[case]]
+driver = "v6"
 runners = ["criterion", "perf"]
-tags.impl = "kiddo_v6"
+tags.impl = "kiddo"
 tags.query = "within_radius"
 tags.dims = 3
 tags.idx = "u32"
@@ -162,8 +170,9 @@ params.query_count.default = 100
 
 # best_n_within through the single-point query builder.
 [[case]]
+driver = "v6"
 runners = ["criterion", "perf"]
-tags.impl = "kiddo_v6"
+tags.impl = "kiddo"
 tags.query = "best_n_within"
 tags.dims = 3
 tags.idx = "u32"
@@ -191,8 +200,9 @@ params.query_count.default = 100
 # where kiddo's multi-threaded execution lives. The batch ends are the
 # interesting ones: nearest_one (k=1) and nearest_n(50).
 [[case]]
+driver = "v6"
 runners = ["criterion", "perf"]
-tags.impl = "kiddo_v6"
+tags.impl = "kiddo"
 tags.query = "exact_nn"
 tags.dims = 3
 tags.idx = "u32"
@@ -219,8 +229,9 @@ params.query_batch_size.default = 1000
 
 # Batch within_radius.
 [[case]]
+driver = "v6"
 runners = ["criterion", "perf"]
-tags.impl = "kiddo_v6"
+tags.impl = "kiddo"
 tags.query = "within_radius"
 tags.dims = 3
 tags.idx = "u32"
@@ -247,8 +258,9 @@ params.query_batch_size.default = 100
 
 # Batch best_n_within.
 [[case]]
+driver = "v6"
 runners = ["criterion", "perf"]
-tags.impl = "kiddo_v6"
+tags.impl = "kiddo"
 tags.query = "best_n_within"
 tags.dims = 3
 tags.idx = "u32"
@@ -277,8 +289,9 @@ params.query_batch_size.default = 100
 # Batch nearest_n_within — this query kind exists only on the batch side of
 # kiddo's API, so there is no single_query counterpart anywhere in the catalog.
 [[case]]
+driver = "v6"
 runners = ["criterion", "perf"]
-tags.impl = "kiddo_v6"
+tags.impl = "kiddo"
 tags.query = "nearest_n_within"
 tags.dims = 3
 tags.idx = "u32"
@@ -316,6 +329,7 @@ params.query_batch_size.default = 100
 # something a manifest should have to encode: the driver derives it and the
 # emitted point records what was actually compiled.
 [[case]]
+driver = "v6"
 runners = ["criterion", "perf"]
 
 matrix.axis = ["f32", "f64"]
@@ -332,7 +346,7 @@ matrix."kiddo.stem" = [
   "donnelly_cyclic_simd_full",
 ]
 
-tags.impl = "kiddo_v6"
+tags.impl = "kiddo"
 tags.dataset = "uniform"
 tags.query = "exact_nn"
 tags.dims = 3
@@ -359,8 +373,9 @@ params.query_count.default = 1000
 # sizes. Single-point queries cannot be parallelised, so these are
 # single_threaded by construction.
 [[case]]
+driver = "v6"
 runners = ["criterion", "perf"]
-tags.impl = "kiddo_v6"
+tags.impl = "kiddo"
 tags.query = "within_radius"
 tags.dims = 3
 tags.idx = "u32"
@@ -387,8 +402,9 @@ params.query_count.default = 100
 
 # Tuned best_n_within on the SIMD stem.
 [[case]]
+driver = "v6"
 runners = ["criterion", "perf"]
-tags.impl = "kiddo_v6"
+tags.impl = "kiddo"
 tags.query = "best_n_within"
 tags.dims = 3
 tags.idx = "u32"

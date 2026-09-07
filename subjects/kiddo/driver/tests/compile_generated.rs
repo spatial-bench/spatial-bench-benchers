@@ -36,8 +36,8 @@ use std::process::Command;
 /// tree_size are runtime axes and deliberately absent — the guard is about the
 /// macro's type mapping, not the sweep.
 const SELECTION: &[&str] = &[
-    "impl=kiddo_v6,k=1,axis=f64,kiddo.stem=eytzinger|donnelly_simd_full|donnelly_cyclic_simd_descent",
-    "impl=kiddo_v6,k=1,axis=f32,kiddo.stem=donnelly_cyclic_simd_full",
+    "impl=kiddo,k=1,axis=f64,kiddo.stem=eytzinger|donnelly_simd_full|donnelly_cyclic_simd_descent",
+    "impl=kiddo,k=1,axis=f32,kiddo.stem=donnelly_cyclic_simd_full",
 ];
 
 #[test]
@@ -73,8 +73,8 @@ fn generated_source_for_a_selection_compiles() {
     let selection = SelectorSet::parse_all(SELECTION).unwrap();
     let (_, cases) = codegen::by_subject(&catalog, &selection)
         .into_iter()
-        .find(|(subject, _)| subject == "kiddo_v6")
-        .expect("the selection should reach kiddo_v6");
+        .find(|(subject, _)| subject == "kiddo")
+        .expect("the selection should reach kiddo");
     assert!(
         cases.len() >= 4,
         "expected several arms, got {}",
@@ -87,30 +87,28 @@ fn generated_source_for_a_selection_compiles() {
     let generated = codegen::generate(
         "spatial-bench-kiddo-v6",
         "bench_case",
-        "kiddo_v6",
+        "kiddo",
         &cases,
         &BuildInputs {
             toolchain: "drift-check".into(),
-            rustflags: catalog.rustflags("kiddo_v6"),
-            subject_rev: catalog.pinned_ref("kiddo_v6").unwrap_or_default(),
+            rustflags: catalog.rustflags("kiddo"),
+            subject_rev: catalog.pinned_ref("kiddo").unwrap_or_default(),
             driver_rev: format!(
                 "path:{};engine:{}",
                 env!("CARGO_MANIFEST_DIR"),
                 engine_root.display()
             ),
-            features: catalog.features("kiddo_v6"),
+            features: catalog.features("kiddo"),
         },
     );
 
-    let (kind, repo, pin) = catalog
-        .source("kiddo_v6")
-        .expect("kiddo_v6 declares a source");
+    let (kind, repo, pin) = catalog.source("kiddo").expect("kiddo declares a source");
     assert_eq!(
         kind, "cargo-git",
         "this guard knows the cargo-git path only"
     );
     let request = BuildRequest {
-        subject: "kiddo_v6".into(),
+        subject: "kiddo".into(),
         driver_crate: "spatial-bench-kiddo-v6".into(),
         driver_source: DriverSource::Path(env!("CARGO_MANIFEST_DIR").into()),
         // The generated package patches the driver's version deps on core +
@@ -121,8 +119,8 @@ fn generated_source_for_a_selection_compiles() {
             repo: repo.expect("cargo-git declares a repo"),
             reference: pin,
         },
-        features: catalog.features("kiddo_v6"),
-        rustflags: catalog.rustflags("kiddo_v6"),
+        features: catalog.features("kiddo"),
+        rustflags: catalog.rustflags("kiddo"),
         generated,
     };
     let dir = materialise(&engine_root.join("target/drift-check"), &request)

@@ -31,7 +31,8 @@ compile_time_dims = [3, 4]
 # Not compile_time: the shim dispatches on it at run time.
 leaf_max_size.kind = "int"
 
-[driver]
+[[driver]]
+name = "default"
 adapter = "exec"
 lang = "cxx"
 entry = "shim.cpp"

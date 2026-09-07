@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       subject:
-        description: "Subject from the catalog (kiddo_v6, nanoflann, pykdtree)"
+        description: "Subject from the catalog (kiddo, nanoflann, pykdtree)"
         required: true
         type: string
       version:

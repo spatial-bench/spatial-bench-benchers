@@ -26,7 +26,7 @@ jobs:
     runs-on: [self-hosted, benchmark]
     strategy:
       matrix:
-        subject: ${{ fromJSON(vars.SUBJECTS || '["kiddo_v6", "nanoflann", "pykdtree"]') }}
+        subject: ${{ fromJSON(vars.SUBJECTS || '["kiddo", "nanoflann", "pykdtree"]') }}
       # One job at a time — the runner processes a single benchmark run.
       max-parallel: 1
       fail-fast: false
