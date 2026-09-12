@@ -625,6 +625,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "spatial-bench-kdbush"
+version = "0.1.0"
+dependencies = [
+ "spatial-bench-core",
+ "spatial-bench-measure",
+]
+
+[[package]]
 name = "spatial-bench-kdtree"
 version = "0.1.0"
 dependencies = [
