@@ -1,0 +1,36 @@
+schema = 1
+name = "kdbush"
+domain = "spatial_index"
+[toolchain]
+min_rustc = "1.89.0"
+[source]
+kind = "cargo"
+pinned_ref = "0.2.0"
+[[driver]]
+name = "v0"
+adapter = "rust-codegen"
+crate = "spatial-bench-kdbush"
+path = "driver"
+version = "0.1.0"
+macro = "bench_case"
+[defaults]
+isa = "native"
+[[case]]
+runners = ["criterion", "perf"]
+tags.impl = "kdbush"
+tags.dataset = "uniform"
+tags.query = "within_radius"
+tags.axis = "f64"
+tags.dims = 2
+tags.idx = "u64"
+tags.metric = "euclidean"
+tags.isa = "native"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+tags."kdbush.target_results" = 100
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 100
+[vocab]
+target_results.kind = "int"
