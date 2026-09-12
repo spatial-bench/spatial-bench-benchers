@@ -1,0 +1,44 @@
+schema = 1
+name = "kdtree"
+domain = "spatial_index"
+
+[toolchain]
+min_rustc = "1.89.0"
+
+[source]
+kind = "cargo-git"
+repo = "https://github.com/mrhooray/kdtree-rs"
+pinned_ref = "v0.8.1"
+sha = "c175108ba77175b614d0a35362ff1a67b53a9515"
+
+[[driver]]
+name = "v0"
+min_supported_semver = "0.8.0"
+max_supported_semver = "0.9.0"
+adapter = "rust-codegen"
+crate = "spatial-bench-kdtree"
+path = "driver"
+version = "0.1.0"
+macro = "bench_case"
+compile_time = ["axis"]
+
+[defaults]
+isa = "native"
+
+[[case]]
+runners = ["criterion", "perf"]
+matrix.axis = ["f32", "f64"]
+matrix.k = [1, 5, 20, 50]
+tags.impl = "kdtree"
+tags.dataset = "uniform"
+tags.query = "exact_nn"
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.isa = "native"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
