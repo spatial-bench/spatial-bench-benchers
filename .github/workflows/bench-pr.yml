@@ -22,14 +22,14 @@ jobs:
     name: Bench the bumped subject
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           show-progress: false
 
       # The engine: built from its own repo at the default branch, since the
       # bencher checkout pins subject versions, not engine versions.
       - name: Checkout the engine
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: spatial-bench/spatial-bench-core
           ref: main
