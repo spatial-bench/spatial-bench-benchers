@@ -1,7 +1,7 @@
 [workspace]
 # The bencher repo's rust driver crates. Each subject dir is self-contained:
 # the crate lives beside its subject.toml.
-members = ["subjects/kiddo/driver", "subjects/kiddo/driver-v5"]
+members = ["subjects/kd-tree/driver", "subjects/kiddo/driver", "subjects/kiddo/driver-v5"]
 resolver = "2"
 
 # Day 1.5: the bencher repo is a sibling of the engine checkout (both under
