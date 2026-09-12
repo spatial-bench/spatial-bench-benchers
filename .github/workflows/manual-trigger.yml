@@ -24,7 +24,7 @@ jobs:
     name: "Bench ${{ inputs.subject }} ${{ inputs.version }}"
     runs-on: [self-hosted, benchmark]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           show-progress: false
 
@@ -32,7 +32,7 @@ jobs:
         run: rm -rf ~/.local/share/spatial-bench/runs
 
       - name: Checkout the engine
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: spatial-bench/spatial-bench-core
           ref: main
@@ -111,7 +111,7 @@ jobs:
           path: ~/.local/share/spatial-bench/runs/
       - name: Checkout the results repo
         if: success()
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: spatial-bench/spatial-bench-results
           ref: main
