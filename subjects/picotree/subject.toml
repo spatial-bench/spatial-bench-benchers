@@ -11,6 +11,11 @@ kind = "cxx-shim"
 std = "c++20"
 flags = ["-O3", "-march=native", "-DNDEBUG"]
 include = ["src/pico_tree"]
+
+[build.cmake]
+# Header-only, but build the pinned project's own core test target as a source
+# smoke test without pulling optional OpenCV examples.
+target = "pico_tree_test"
 [[driver]]
 name = "default"
 adapter = "exec"
