@@ -54,7 +54,7 @@ jobs:
           fi
 
       - name: Install `stable` toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v2
 
       - name: Build the engine
         run: cargo build --release -p spatial-bench -p spatial-bench-dataset
