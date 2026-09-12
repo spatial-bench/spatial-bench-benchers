@@ -1,0 +1,10 @@
+[package]
+name = "spatial-bench-geo-index"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89.0"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+spatial-bench-core = { version = "0.1.0" }
+spatial-bench-measure = { version = "0.1.0" }
