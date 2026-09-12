@@ -1,0 +1,41 @@
+schema = 1
+name = "fnntw"
+domain = "spatial_index"
+
+[toolchain]
+min_rustc = "1.89.0"
+
+[source]
+kind = "cargo-git"
+repo = "https://github.com/cavemanloverboy/FNNTW"
+pinned_ref = "v.0.4.1"
+sha = "f4d5fb71efe6863cbb4dcbde1b3b74648e4d3ee6"
+
+[[driver]]
+name = "v0"
+adapter = "rust-codegen"
+crate = "spatial-bench-fnntw"
+path = "driver"
+version = "0.1.0"
+macro = "bench_case"
+
+[defaults]
+isa = "native"
+
+[[case]]
+runners = ["criterion", "perf"]
+matrix.k = [1, 5, 20, 50]
+tags.impl = "fnntw"
+tags.dataset = "uniform"
+tags.query = "exact_nn"
+tags.axis = "f64"
+tags.dims = 3
+tags.idx = "u64"
+tags.metric = "squared_euclidean"
+tags.isa = "native"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
