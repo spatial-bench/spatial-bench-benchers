@@ -1,0 +1,34 @@
+schema = 1
+name = "scipy"
+domain = "spatial_index"
+[source]
+kind = "pypi"
+package = "scipy"
+pinned_ref = "1.16.3"
+[build]
+kind = "python-driver"
+[[driver]]
+name = "default"
+adapter = "exec"
+lang = "python"
+entry = "driver.py"
+[vocab]
+tree.values = ["KDTree", "cKDTree"]
+[[case]]
+runners = ["criterion", "perf"]
+matrix.axis = ["f32", "f64"]
+matrix.k = [1, 5, 20, 50]
+matrix."scipy.tree" = ["KDTree", "cKDTree"]
+tags.impl = "scipy"
+tags.dataset = "uniform"
+tags.query = "exact_nn"
+tags.dims = 3
+tags.metric = "euclidean"
+tags.isa = "native"
+tags.query_batching = "single_query"
+# Both SciPy query APIs default workers=1; this driver does not override it.
+tags.parallelism = "single_threaded"
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
