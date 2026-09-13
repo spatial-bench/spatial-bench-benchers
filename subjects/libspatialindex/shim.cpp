@@ -1,0 +1,19 @@
+// libspatialindex R-tree nearestNeighborQuery uses the upstream serial visitor
+// interface; parallel callers are an application-level responsibility.
+#include "../nanoflann/json.hpp"
+#include <spatialindex/SpatialIndex.h>
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <format>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
+using namespace SpatialIndex;
+namespace {struct B{double w,m;size_t s;};struct V:IVisitor{uint64_t sum=0;void visitNode(const INode&)override{}void visitData(const IData&d)override{sum+=d.getIdentifier();}void visitData(std::vector<const IData*>&d)override{for(auto*x:d)sum+=x->getIdentifier();}};const sbjson::Value&g(const sbjson::Value&v,const char*k){auto*p=v.get(k);if(!p)throw std::runtime_error(k);return*p;}long long i(const sbjson::Value&v,const char*k){auto&p=g(v,k);if(p.t!=sbjson::Value::T::Int)throw std::runtime_error(k);return p.i;}std::string w(const sbjson::Value&v,const char*k){auto&p=g(v,k);if(p.t!=sbjson::Value::T::String)throw std::runtime_error(k);return p.s;}double e(std::chrono::steady_clock::time_point x){return std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-x).count();}std::vector<char>d(const sbjson::Value&c,const sbjson::Value&t){std::string cmd=w(c,"dataset_generator")+" --kind "+w(c,"dataset")+" --dims 3 --dtype f64 --tree-count "+std::to_string(i(t,"tree_size"))+" --query-count "+std::to_string(i(t,"query_count"))+" --seed "+std::to_string(i(c,"random_seed"));FILE*p=popen(cmd.c_str(),"r");if(!p)throw std::runtime_error("generator");std::vector<char>o;char b[65536];size_t n;while((n=fread(b,1,sizeof b,p)))o.insert(o.end(),b,b+n);if(pclose(p)||o.size()<29)throw std::runtime_error("dataset");return o;}
+std::string r(const sbjson::Value&c,B b){auto&t=g(c,"tags");if(w(t,"axis")!="f64"||i(t,"dims")!=3)throw std::runtime_error("unsupported");auto raw=d(c,t);uint64_t n;memcpy(&n,raw.data()+13,8);auto*v=reinterpret_cast<double*>(raw.data()+29);size_t q=i(t,"query_count"),k=i(t,"k");std::unique_ptr<IStorageManager> store(StorageManager::createNewMemoryStorageManager());id_type id;std::unique_ptr<ISpatialIndex> tree(RTree::createNewRTree(*store,.7,100,100,3,RTree::RV_RSTAR,id));for(uint64_t x=0;x<n;x++){double*p=v+x*3;Region z(p,p,3);tree->insertData(0,nullptr,z,x);}auto body=[&]{V vis;for(size_t x=0;x<q;x++){Point p(v+n*3+x*3,3);tree->nearestNeighborQuery(k,p,vis);}return vis.sum;};auto warm=std::chrono::steady_clock::now();while(e(warm)<b.w)body();std::vector<double>s;auto start=std::chrono::steady_clock::now();while(s.size()<b.s&&e(start)<b.m){auto at=std::chrono::steady_clock::now();body();s.push_back(std::chrono::duration<double,std::nano>(std::chrono::steady_clock::now()-at).count()/q);}std::sort(s.begin(),s.end());double mean=0;for(auto x:s)mean+=x;mean/=s.size();double var=0;for(auto x:s)var+=(x-mean)*(x-mean);var/=s.size();double sd=sqrt(var),h=1.96*sd/sqrt((double)s.size());std::string o="{\"tags\":{";bool f=true;for(auto&kv:g(c,"tags").obj){if(!f)o+=',';f=false;o+='\"'+kv.first+"\":"+kv.second.raw;}return o+std::format("}},\"metrics\":{{\"latency_ns\":{{\"point\":{},\"lower\":{},\"upper\":{},\"unit\":\"ns/query\"}},\"throughput_qps\":{{\"point\":{},\"unit\":\"queries/s\"}}}},\"stats\":{{\"samples\":{},\"ci\":0.95,\"std_dev_ns\":{},\"median_ns\":{},\"mad_ns\":0}}}}",mean,mean-h,mean+h,1e9/mean,s.size(),sd,s[s.size()/2]);}}
+int main(int ac,char**av){if(ac>1&&std::string(av[1])=="--list"){puts("{\"compile_time\": []}");return 0;}try{std::string in((std::istreambuf_iterator<char>(std::cin)),{});auto x=sbjson::parse(in);auto&b=g(x,"budget");B z{(double)i(b,"warm_up_ms"),(double)i(b,"measurement_ms"),(size_t)i(b,"sample_size")};for(auto&c:g(x,"cases").arr)puts(r(c,z).c_str());return 0;}catch(const std::exception&e){fprintf(stderr,"libspatialindex: %s\n",e.what());return 5;}}
