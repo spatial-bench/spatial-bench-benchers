@@ -1,0 +1,52 @@
+schema = 1
+name = "libnabo"
+domain = "spatial_index"
+
+[source]
+kind = "git"
+repo = "https://github.com/ethz-asl/libnabo"
+pinned_ref = "1.1.2"
+sha = "cd95c8b95e8620e6c4ba722ed0f56974b4740873"
+
+[build]
+kind = "cxx-shim"
+std = "c++20"
+flags = ["-O3", "-march=native", "-DNDEBUG", "-fopenmp"]
+include = ["."]
+
+[build.cmake]
+configure = ["-DLIBNABO_BUILD_DOXYGEN=OFF", "-DLIBNABO_BUILD_EXAMPLES=OFF", "-DLIBNABO_BUILD_TESTS=OFF", "-DLIBNABO_BUILD_PYTHON=OFF", "-DUSE_OPEN_MP=ON"]
+target = "nabo"
+libraries = ["libnabo.a"]
+
+[[build.cmake.dependency]]
+name = "eigen"
+repo = "https://gitlab.com/libeigen/eigen.git"
+pinned_ref = "3.4.0"
+sha = "3147391d946bb4b6c68edd901f2add6ac1f31f8c"
+cmake_var = "EIGEN_INCLUDE_DIR"
+include = "."
+
+[[driver]]
+name = "default"
+adapter = "exec"
+lang = "cxx"
+entry = "shim.cpp"
+
+[[case]]
+runners = ["criterion", "perf"]
+matrix.k = [1, 5, 20, 50]
+tags.impl = "libnabo"
+tags.dataset = "uniform"
+tags.query = "exact_nn"
+tags.axis = "f32"
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.isa = "native"
+tags.query_batching = "batch_query"
+tags.parallelism = "multi_threaded"
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
