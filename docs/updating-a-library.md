@@ -7,9 +7,9 @@ Change its driver when the API or measured operation changes. Use the
 ## Update a release pin
 
 Change `source.pinned_ref` and its matching `sha`: a full commit for Git sources,
-or the selected distribution's SHA-256 for a hash-pinned PyPI source. The engine
-accepts a `sha256:` prefix for PyPI. Check the digest together with the version so
-the build verifies the intended artifact.
+or the selected distribution's unprefixed 64-character SHA-256 for a hash-pinned
+PyPI source. Check the digest together with the version so the build verifies the
+intended artifact.
 
 Check that the release falls within the driver's supported version interval.
 The minimum is inclusive and the maximum exclusive; kdtree's driver covers
