@@ -7,8 +7,8 @@ are described in the [methodology](https://spatial-bench.org/methodology).
 
 ## Cases and registrations
 
-A manifest expands fixed `tags`, enumerated `matrix` values and selector-controlled
-`params` into cases. The [onboarding guide](adding-a-library.md#describe-the-workload)
+A manifest expands `tags` and `matrix` values into cases; selectors resolve each
+case's `params` into measured points. The [onboarding guide](adding-a-library.md#describe-the-workload)
 shows how to declare them and their default settings.
 
 Rust `driver.compile_time` lists core keys requiring separate instantiations.
