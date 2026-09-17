@@ -103,8 +103,9 @@ so its counters include setup and analysis as well as query execution.
 | `driver.compile_time`, extension `compile_time` | Keys requiring separate generated Rust instantiations |
 | `build.compile_time_dims` | Dimensions compiled into a C++ shim's dispatch |
 
-An explicit PyPI digest may use the `sha256:` prefix. Without a manifest digest,
-the engine records the resolved source identity. `--subject-path NAME=DIR` allows
+Write a PyPI digest in the manifest as 64 hexadecimal characters without a
+prefix. The run record adds `sha256:` to the resolved distribution digest. Without
+a manifest digest, the engine records the resolved source identity. `--subject-path NAME=DIR` allows
 a Rust library checkout during development and marks working-tree provenance.
 C++ recipes also specify include paths and optional source-build dependencies;
 Python recipes prepare a virtual environment.
