@@ -1,38 +1,44 @@
 # Add a library
 
-An entry needs a `subjects/<name>/subject.toml` manifest and a driver that measures
-the declared operations. Complete the [local setup](../CONTRIBUTING.md), then use
-the kdtree entry as a Rust starting point or the C++/Python examples below.
+Adding a library means writing two things: a `subjects/<name>/subject.toml`
+manifest that declares what will be benchmarked, and a driver that actually
+measures those operations. Complete the [local setup](../CONTRIBUTING.md) first,
+then use the kdtree entry as a Rust starting point, or one of the C++ and Python
+examples further down.
 
 ## Define the cases
 
-Choose the API operation and the coordinate types, dimensions, metrics and result
-counts you will support. Specify whether each case uses individual or batched API
-calls and how it uses threads. Begin with a small selection that you can compare
-against a reference implementation.
+Decide up front which API operation you are measuring and which coordinate types,
+dimensions, metrics and result counts you intend to support. It also matters
+whether each case makes individual or batched API calls and how it uses threads,
+because both change what the timed region contains. Start with a small selection
+that you can check against a reference implementation rather than trying to cover
+the whole API.
 
-The engine checks identifiers against a closed vocabulary. Find your library's
-`impl` name in
-[core vocab.rs](https://github.com/spatial-bench/spatial-bench-core/blob/main/crates/spatial-bench-core/src/vocab.rs).
-If it is absent, propose that identifier in a linked core PR. For new operations
-or input distributions, use the core
+The engine validates identifiers against a closed vocabulary, so look for your
+library's `impl` name in the core
+[vocab.rs](https://github.com/spatial-bench/spatial-bench-core/blob/main/crates/spatial-bench-core/src/vocab.rs).
+If it is not there, propose the identifier in a linked core PR. New operations or
+input distributions are larger changes and follow the core
 [query](https://github.com/spatial-bench/spatial-bench-core/blob/main/docs/adding-query-types.md)
-or [dataset](https://github.com/spatial-bench/spatial-bench-core/blob/main/docs/adding-datasets.md)
-guide. Library-specific options can be declared in the subject's own `[vocab]`.
+and [dataset](https://github.com/spatial-bench/spatial-bench-core/blob/main/docs/adding-datasets.md)
+guides. Options specific to your library do not need core at all; declare them in
+the subject's own `[vocab]`.
 
 ## Create a Rust entry
 
-Copy [subjects/kdtree](../subjects/kdtree) into your subject directory. Rename the
-manifest's `name` and `tags.impl` to your registered identifier. Give the driver
-crate a distinct package name, update the manifest's `driver.crate`, and add its
-path to the root [Cargo workspace](../Cargo.toml). Keep the core and measurement
-helper dependencies; the workspace patches them to the adjacent engine checkout.
+Copy [subjects/kdtree](../subjects/kdtree) into a new subject directory, then
+rename the manifest's `name` and `tags.impl` to your registered identifier. Give
+the driver crate a distinct package name, point the manifest's `driver.crate` at
+it, and add its path to the root [Cargo workspace](../Cargo.toml). Leave the core
+and measurement helper dependencies in place, since the workspace patches them to
+the adjacent engine checkout.
 
 ### Pin the source and select a driver
 
-Set `[source]` to `kind = "cargo-git"`, the upstream repository and release tag,
-plus the full commit in `sha`. Resolve an annotated tag to its commit. For example,
-the existing kdtree source is:
+A `[source]` of `kind = "cargo-git"` needs the upstream repository, the release tag
+and the full commit in `sha`, so resolve an annotated tag to its commit rather than
+using the tag name. The existing kdtree source shows the shape:
 
 ```toml
 [source]
@@ -42,18 +48,20 @@ pinned_ref = "v0.8.1"
 sha = "c175108ba77175b614d0a35362ff1a67b53a9515"
 ```
 
-The engine injects this dependency into the generated benchmark crate, where your
-driver macro calls the library. The driver crate itself depends on the core and
-measurement helpers.
+The engine injects this dependency into the generated benchmark crate, which is
+where your driver macro calls into the library. The driver crate itself continues
+to depend on the core and measurement helpers.
 
-Adapt the copied `[[driver]]` block's package path, macro and supported-version
-range. kdtree uses `adapter = "rust-codegen"`, `macro = "bench_case"` and
-`compile_time = ["axis"]`; its driver supports `[0.8.0, 0.9.0)`. The
-[contract](driver-contract.md#build-settings) explains these fields.
+Next, adapt the copied `[[driver]]` block: its package path, the macro it exports
+and the range of library versions it supports. kdtree uses
+`adapter = "rust-codegen"`, `macro = "bench_case"` and `compile_time = ["axis"]`,
+and its driver covers `[0.8.0, 0.9.0)`. The
+[contract](driver-contract.md#build-settings) explains what each of those fields
+means.
 
 ### Describe the workload
 
-Use the copied [kdtree case](../subjects/kdtree/subject.toml) to define:
+The copied kdtree case is a reasonable template for the manifest sections you need:
 
 | Manifest section | kdtree example | Your entry |
 | --- | --- | --- |
@@ -62,64 +70,68 @@ Use the copied [kdtree case](../subjects/kdtree/subject.toml) to define:
 | `params` | Tree-size range `2^16..2^24`, query-count default `1000` | Values a selector may choose at runtime |
 | `defaults` | `isa = "native"` | The ordinary configuration against which tuning is classified |
 
-Remove unsupported combinations. Give each case an explicit `driver` name if the
-manifest contains more than one driver. `exact_nn` uses k for the number of
-neighbours, including nearest-one at k=1.
+Remove any combination your library does not support. If the manifest ends up with
+more than one driver, each case needs an explicit `driver` name. The `exact_nn`
+tag counts `k` neighbours, with `k=1` meaning the single nearest point.
 
-For a library parameter, declare its type or allowed values in `[vocab]` and refer
-to it using its namespaced key, such as `mytree.bucket`, in cases and defaults.
-The engine labels a case `default` when every declared default matches, and `tuned`
-otherwise. Declare the settings needed to distinguish your tuning sweep; the
-engine cannot infer the library's defaults. It rejects a manually supplied
-`defaults_or_tuned` case tag.
+Library parameters are declared in `[vocab]` with their type or allowed values, and
+then referred to by a namespaced key such as `mytree.bucket` in both cases and
+defaults. The engine labels a case `default` when every declared default matches and
+`tuned` otherwise, which means it cannot infer your library's defaults, so you have
+to declare the settings that distinguish a tuning sweep. Supplying `defaults_or_tuned`
+as a case tag by hand is rejected.
 
 ### Adapt the measured operation
 
-Read [kdtree's bench_case! macro](../subjects/kdtree/driver/src/lib.rs). For each
-coordinate type it obtains points from the shared generator, builds a tree and
-passes a closure to `measure`. The closure queries every probe and combines result
-item IDs into a checksum. Replace the tree construction and query calls with your
-API while preserving that flow.
+Read [kdtree's `bench_case!` macro](../subjects/kdtree/driver/src/lib.rs) before
+editing anything. For each coordinate type it obtains points from the shared
+generator, builds a tree, and hands a closure to `measure`; that closure queries
+every probe and folds the returned item IDs into a checksum. Your job is to replace
+the tree construction and the query calls with your library's API while leaving
+that overall flow intact.
 
-The `measure` call receives the number of probes processed by one closure call.
-It uses that count to normalize the batch timing to nanoseconds per query. Keep
-input generation and construction outside a query benchmark's timed closure;
-include per-call API work and result consumption inside it. See the
-[measurement contract](driver-contract.md#measurement) for allocations and batching.
+`measure` is told how many probes one closure call processed, and uses that count
+to normalize the batch timing into nanoseconds per query. So keep input generation
+and construction outside a query benchmark's timed closure, and keep the per-call
+API work and result consumption inside it. The
+[measurement contract](driver-contract.md#measurement) covers allocations and
+batching in more detail.
 
-Retain `harness_main` and `--list` support. Each registration must report the keys
-listed in `driver.compile_time`, plus compile-time extension keys. Other case
-values are read at runtime.
+Retain `harness_main` and the `--list` support. Every registration must report the
+keys listed in `driver.compile_time` plus any compile-time extension keys; the
+remaining case values are read at runtime.
 
 ## C++ and Python entries
 
-For C++, copy the [nanoflann subject](../subjects/nanoflann), including its JSON and
-other supporting headers. Update the Git source pin and the `cxx-shim` recipe's
+For C++, copy the [nanoflann subject](../subjects/nanoflann), including its JSON
+and supporting headers, then update the Git source pin and the `cxx-shim` recipe's
 compiler flags and include paths. Paths in `build.include` are relative to the
 fetched library. `compile_time_dims` controls the generated C++ dimensionality
-dispatch; the current shim advertises one registration and dispatches cases at
+dispatch; the current shim advertises a single registration and dispatches cases at
 runtime. Adapt its query loop to your library.
 
-For Python, copy [pykdtree](../subjects/pykdtree), change the PyPI package/version
-and adapt `driver.py`. The `python-driver` recipe builds a virtual environment and
-installs the selected distribution. The engine records its SHA-256; setting
-`source.sha` requires that exact wheel or source archive. Wheel digests depend on
-the artifact and platform. Python array conversions and binding calls inside the
-query loop contribute to its measured cost. Represent a native batch API as a
-separate `query_batching = "batch_query"` case.
+For Python, copy [pykdtree](../subjects/pykdtree), change the PyPI package and
+version, and adapt `driver.py`. The `python-driver` recipe builds a virtual
+environment and installs the selected distribution, whose SHA-256 the engine
+records; setting `source.sha` requires exactly that wheel or source archive, and
+wheel digests depend on both the artifact and the platform. Bear in mind that the
+array conversions and binding calls inside the query loop contribute to the
+measured cost. If your library offers a native batch API, expose it as a separate
+`query_batching = "batch_query"` case.
 
-Both use `adapter = "exec"` and the shared input/output protocol described in the
-[driver contract](driver-contract.md). Preserve the generator invocation and
-measurement procedure when replacing the library-specific calls.
+Both languages use `adapter = "exec"` and the shared input/output protocol described
+in the [driver contract](driver-contract.md). When you replace the library-specific
+calls, preserve the generator invocation and the measurement procedure.
 
 ## Validate and propose the entry
 
-Follow the [PR checks](../CONTRIBUTING.md#prepare-a-pull-request), substituting your
-subject and driver package. Inspect a small selection with `list`, run it and
-compare its output tags with the API path exercised. For correctness evidence,
-include inputs with ties or duplicate coordinates when these affect your query.
+Work through the [PR checks](../CONTRIBUTING.md#prepare-a-pull-request) with your
+own subject and driver package substituted. Inspect a small selection with `list`,
+run it, and compare the output tags against the API path actually exercised. For
+correctness evidence, include inputs with tied or duplicate coordinates whenever
+those affect your query.
 
-Check [corpus.toml](../corpus.toml) for an existing selection covering your cases.
-Add a selection if the intended workload is missing. Each library runs the subset
-its manifest supports. Link any required core change in the bencher PR so reviewers
-can load and validate the complete entry.
+Check [corpus.toml](../corpus.toml) for a selection that already covers your cases
+and add one if the intended workload is missing; each library runs the subset its
+manifest supports. If a core change was needed, link it in the bencher PR so
+reviewers can load and validate the complete entry.
