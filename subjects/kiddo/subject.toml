@@ -205,8 +205,7 @@ params.query_count.kind = "int"
 params.query_count.default = 100
 
 # Batch exact_nn: many query points per call through `query_batch`, which is
-# where kiddo's multi-threaded execution lives. The batch ends are the
-# interesting ones: nearest_one (k=1) and nearest_n(50).
+# where kiddo's multi-threaded execution lives.
 [[case]]
 driver = "v6"
 runners = ["criterion", "perf"]
@@ -225,7 +224,7 @@ tags."kiddo.block_height" = 3
 tags."kiddo.storage" = "heap"
 
 matrix.axis = ["f32", "f64"]
-matrix.k = [1, 50]
+matrix.k = [1, 5, 20, 50]
 matrix.parallelism = ["single_threaded", "multi_threaded"]
 
 params.tree_size.range = "2^16..2^29"
