@@ -21,7 +21,7 @@ jobs:
           token: ${{ secrets.BENCHER_PAT }}
 
       - name: Install Python for the checker
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3"
 
