@@ -1,0 +1,40 @@
+schema = 1
+name = "geo_index"
+domain = "spatial_index"
+
+[toolchain]
+min_rustc = "1.89.0"
+
+[source]
+kind = "cargo"
+package = "geo-index"
+pinned_ref = "0.3.4"
+
+[[driver]]
+name = "v0"
+adapter = "rust-codegen"
+crate = "spatial-bench-geo-index"
+path = "driver"
+version = "0.1.0"
+macro = "bench_case"
+
+[defaults]
+isa = "native"
+
+[[case]]
+runners = ["criterion", "perf"]
+matrix.k = [1, 5, 20, 50]
+tags.impl = "geo_index"
+tags.dataset = "uniform"
+tags.query = "exact_nn"
+tags.axis = "f64"
+tags.dims = 2
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.isa = "native"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+params.tree_size.range = "2^16..2^24"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
