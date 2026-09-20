@@ -180,6 +180,9 @@ macro_rules! __kiddo_leaf {
     (vec_of_arenas, $axis:ty, $idx:ty, $dims:literal, $bucket:literal) => {
         ::kiddo::VecOfArenas<$axis, $idx, $dims, $bucket>
     };
+    (vec_of_arrays, $axis:ty, $idx:ty, $dims:literal, $bucket:literal) => {
+        ::kiddo::leaf_strategy::VecOfArrays<$axis, $idx, $dims, $bucket>
+    };
 }
 
 /// Instantiate one monomorphisation of the kiddo harness.
