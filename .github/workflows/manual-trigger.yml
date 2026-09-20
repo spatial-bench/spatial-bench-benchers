@@ -15,6 +15,10 @@ on:
         description: "Version to pin (e.g. v6.1.0, 1.7.1, 1.4.3); empty = keep the current pin"
         required: false
         type: string
+      select:
+        description: "Selector expression (e.g. query=exact_nn,k=5|20,parallelism=multi_threaded,tree_size=2^16..2^24); empty = standard corpus"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -81,18 +85,23 @@ jobs:
           sed -i "/^sha = /d" "$manifest"
           grep -E "pinned_ref|^sha" "$manifest" || true
 
-      - name: Run the standard corpus
+      - name: Run selected benchmarks
+        env:
+          SUBJECT: ${{ inputs.subject }}
+          SELECTS: ${{ inputs.select }}
         run: |
-          SUBJECT="${{ inputs.subject }}"
-          SELECTS=$(grep '^select = ' corpus.toml | sed 's/^select = "//; s/"$//')
-          echo "Running $SUBJECT against the standard corpus:"
+          set -o pipefail
+          if [ -z "$SELECTS" ]; then
+            SELECTS=$(grep '^select = ' corpus.toml | sed 's/^select = "//; s/"$//')
+          fi
+          echo "Running $SUBJECT against these selections:"
           echo "$SELECTS"
           while IFS= read -r sel; do
             [ -z "$sel" ] && continue
             echo "=== selection: $sel ==="
             COUNT=$(./engine/target/release/spatial-bench list \
               --subjects "$GITHUB_WORKSPACE/subjects" \
-              --select "impl=$SUBJECT,$sel" 2>/dev/null | tail -1)
+              --select "impl=$SUBJECT,$sel" | tail -1)
             echo "$COUNT"
             if ! echo "$COUNT" | grep -qE '[1-9][0-9]* points'; then
               echo "skipping: the subject's manifest covers none of this selection"
@@ -134,4 +143,3 @@ jobs:
           git -C spatial-bench-results config user.email "ci@spatial-bench.invalid"
           ./engine/target/release/spatial-bench submit \
             --to "$GITHUB_WORKSPACE/spatial-bench-results"
-
