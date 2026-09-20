@@ -77,11 +77,11 @@ compile_time = ["axis", "dims", "idx"]
 # The out-of-the-box configuration, as both drivers' quick-start entry
 # points build it: no explicit ISA restriction (best available on the
 # runner). The runner labels a case `defaults_or_tuned = default` when every
-# key here matches the case's tags, `tuned` when any differs — the v6
-# driver's tuned cases are all the explicit-SIMD stems (isa = avx512), and
-# kiddo 5's tree has no configuration choices at all.
+# key here matches the case's tags, `tuned` when any differs. Custom
+# structures are tuned even with native ISA; the v5 layout remains standard.
 [defaults]
 isa = "native"
+"kiddo.structure" = "standard"
 
 # Extension keys this subject contributes, namespaced under `kiddo.` so two
 # subjects can both have a `stem` or a `layout` without colliding.
@@ -106,7 +106,8 @@ stem.values = [
 block_height.compile_time = true
 block_height.kind = "int"
 leaf.compile_time = true
-leaf.values = ["flatvec", "vec_of_arenas"]
+leaf.values = ["flatvec", "vec_of_arenas", "vec_of_arrays"]
+structure.values = ["standard", "custom"]
 bucket.compile_time = true
 bucket.kind = "int"
 storage.values = ["heap", "archived_mmap", "archived_owned"]
@@ -130,6 +131,7 @@ matrix.axis = ["f32", "f64"]
 matrix.k = [1, 5, 20, 50]
 
 tags.impl = "kiddo"
+tags."kiddo.structure" = "standard"
 tags.dataset = "uniform"
 tags.query = "exact_nn"
 tags.dims = 3
@@ -154,6 +156,7 @@ params.query_count.default = 1000
 driver = "v6"
 runners = ["criterion", "perf"]
 tags.impl = "kiddo"
+tags."kiddo.structure" = "standard"
 tags.query = "within_radius"
 tags.dims = 3
 tags.idx = "u32"
@@ -181,6 +184,7 @@ params.query_count.default = 100
 driver = "v6"
 runners = ["criterion", "perf"]
 tags.impl = "kiddo"
+tags."kiddo.structure" = "standard"
 tags.query = "best_n_within"
 tags.dims = 3
 tags.idx = "u32"
@@ -210,6 +214,7 @@ params.query_count.default = 100
 driver = "v6"
 runners = ["criterion", "perf"]
 tags.impl = "kiddo"
+tags."kiddo.structure" = "standard"
 tags.query = "exact_nn"
 tags.dims = 3
 tags.idx = "u32"
@@ -239,6 +244,7 @@ params.query_batch_size.default = 1000
 driver = "v6"
 runners = ["criterion", "perf"]
 tags.impl = "kiddo"
+tags."kiddo.structure" = "standard"
 tags.query = "within_radius"
 tags.dims = 3
 tags.idx = "u32"
@@ -268,6 +274,7 @@ params.query_batch_size.default = 100
 driver = "v6"
 runners = ["criterion", "perf"]
 tags.impl = "kiddo"
+tags."kiddo.structure" = "standard"
 tags.query = "best_n_within"
 tags.dims = 3
 tags.idx = "u32"
@@ -299,6 +306,7 @@ params.query_batch_size.default = 100
 driver = "v6"
 runners = ["criterion", "perf"]
 tags.impl = "kiddo"
+tags."kiddo.structure" = "standard"
 tags.query = "nearest_n_within"
 tags.dims = 3
 tags.idx = "u32"
@@ -354,6 +362,7 @@ matrix."kiddo.stem" = [
 ]
 
 tags.impl = "kiddo"
+tags."kiddo.structure" = "custom"
 tags.dataset = "uniform"
 tags.query = "exact_nn"
 tags.dims = 3
@@ -383,6 +392,7 @@ params.query_count.default = 1000
 driver = "v6"
 runners = ["criterion", "perf"]
 tags.impl = "kiddo"
+tags."kiddo.structure" = "custom"
 tags.query = "within_radius"
 tags.dims = 3
 tags.idx = "u32"
@@ -412,6 +422,7 @@ params.query_count.default = 100
 driver = "v6"
 runners = ["criterion", "perf"]
 tags.impl = "kiddo"
+tags."kiddo.structure" = "custom"
 tags.query = "best_n_within"
 tags.dims = 3
 tags.idx = "u32"
@@ -451,6 +462,7 @@ matrix.axis = ["f32", "f64"]
 matrix.k = [1, 5, 20, 50]
 
 tags.impl = "kiddo"
+tags."kiddo.structure" = "standard"
 tags.dataset = "uniform"
 tags.query = "exact_nn"
 tags.dims = 3
@@ -469,6 +481,7 @@ params.query_count.default = 1000
 driver = "v5"
 runners = ["criterion", "perf"]
 tags.impl = "kiddo"
+tags."kiddo.structure" = "standard"
 tags.query = "within_radius"
 tags.dims = 3
 tags.idx = "u64"
@@ -490,6 +503,7 @@ params.query_count.default = 100
 driver = "v5"
 runners = ["criterion", "perf"]
 tags.impl = "kiddo"
+tags."kiddo.structure" = "standard"
 tags.query = "best_n_within"
 tags.dims = 3
 tags.idx = "u64"
@@ -512,6 +526,7 @@ params.query_count.default = 100
 driver = "v5"
 runners = ["criterion", "perf"]
 tags.impl = "kiddo"
+tags."kiddo.structure" = "standard"
 tags.query = "nearest_n_within"
 tags.dims = 3
 tags.idx = "u64"
@@ -529,3 +544,91 @@ params.tree_size.range = "2^16..2^24"
 params.tree_size.default = "2^20"
 params.query_count.kind = "int"
 params.query_count.default = 100
+
+[[case]]
+driver = "v6"
+runners = ["criterion", "perf"]
+tags.impl = "kiddo"
+tags."kiddo.structure" = "custom"
+tags.dataset = "uniform"
+tags.query = "exact_nn"
+tags.axis = "f64"
+tags.k = 1
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.isa = "native"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+params.tree_size.range = "2^16..2^29"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
+
+matrix."kiddo.bucket" = [16, 64, 128, 256]
+tags."kiddo.leaf" = "vec_of_arenas"
+tags."kiddo.stem" = "eytzinger"
+
+[[case]]
+driver = "v6"
+runners = ["criterion", "perf"]
+tags.impl = "kiddo"
+tags."kiddo.structure" = "custom"
+tags.dataset = "uniform"
+tags.query = "exact_nn"
+tags.axis = "f64"
+tags.k = 1
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.isa = "native"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+params.tree_size.range = "2^16..2^29"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
+
+matrix."kiddo.leaf" = ["flatvec", "vec_of_arrays"]
+tags."kiddo.bucket" = 32
+tags."kiddo.stem" = "eytzinger"
+
+[[case]]
+driver = "v6"
+runners = ["criterion", "perf"]
+tags.impl = "kiddo"
+tags."kiddo.structure" = "custom"
+tags.dataset = "uniform"
+tags.query = "exact_nn"
+tags.axis = "f64"
+tags.k = 1
+tags.dims = 3
+tags.idx = "u32"
+tags.metric = "squared_euclidean"
+tags.isa = "native"
+tags.query_batching = "single_query"
+tags.parallelism = "single_threaded"
+tags."kiddo.block_height" = 3
+tags."kiddo.storage" = "heap"
+params.tree_size.range = "2^16..2^29"
+params.tree_size.default = "2^20"
+params.query_count.kind = "int"
+params.query_count.default = 1000
+
+matrix."kiddo.stem" = [
+  "eytzinger_nopf",
+  "donnelly",
+  "donnelly_nopf",
+  "donnelly_unrolled",
+  "donnelly_unrolled_block_dim",
+  "donnelly_simd_descent",
+  "donnelly_simd_full",
+  "donnelly_cyclic_simd_descent",
+  "donnelly_cyclic_simd_full",
+]
+tags."kiddo.bucket" = 32
+tags."kiddo.leaf" = "vec_of_arenas"
